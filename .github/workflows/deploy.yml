@@ -1,0 +1,23 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push Docker images
+        run: |
+          echo "TODO: Configure deployment target (AWS ECS, GCP Cloud Run, etc.)"
+          echo "docker-compose -f docker-compose.prod.yml build"
+          echo "docker-compose -f docker-compose.prod.yml push"
+
+      - name: Deploy to production
+        run: |
+          echo "TODO: Deploy to production infrastructure"
