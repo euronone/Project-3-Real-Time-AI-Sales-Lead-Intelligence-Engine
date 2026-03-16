@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import type { ActiveCall, CallStatus } from "@/types/call";
+import type { ActiveCall } from "@/types/call";
+import type { CallStatus } from "@/types/models";
 
 interface CallState {
   activeCall: ActiveCall | null;
