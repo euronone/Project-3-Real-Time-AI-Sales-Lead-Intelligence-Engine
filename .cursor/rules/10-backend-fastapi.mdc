@@ -40,7 +40,7 @@ API conventions:
 
 Preferred backend structure (already established — extend, don't restructure):
 - `app/api/v1/`          — HTTP + WebSocket route handlers
-- `app/api/dependencies/` — Shared DI (db session, current user, tenant)
+- `app/dependencies.py`  — Shared DI (db session, current user — `get_current_user` carries tenant_id)
 - `app/services/`        — Business logic (auth, leads, calls, analysis, prediction, guidance, notifications, webhooks)
 - `app/ai/`              — AI pipeline (openai_client, pipeline, prompts/)
 - `app/realtime/`        — Socket.IO server, Twilio Media Streams handler, Redis bridge

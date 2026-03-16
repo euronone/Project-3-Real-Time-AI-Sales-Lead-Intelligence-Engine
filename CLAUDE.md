@@ -963,7 +963,7 @@ These rules enforce the same constraints as `.cursor/rules/`. Follow them on eve
 
 ### Multi-tenancy — never break these
 - Every SQLAlchemy query on tenant-scoped data **must** filter by `tenant_id`.
-- `tenant_id` comes from the JWT token via `Depends(get_current_tenant)` — never from the request body.
+- `tenant_id` is extracted from the authenticated user via `Depends(get_current_user)` in `app/dependencies.py` — never from the request body.
 - If a resource's `tenant_id` does not match the caller's `tenant_id`, return 403. No exceptions.
 - Redis pub/sub channels and cache keys must be namespaced by `tenant_id`.
 
@@ -985,7 +985,7 @@ These rules enforce the same constraints as `.cursor/rules/`. Follow them on eve
 - All S3 operations go through `app/services/storage_service.py` only.
 - Twilio webhook handlers must validate the `X-Twilio-Signature` header before processing any payload.
 - Never serve raw Twilio recording URLs to clients — always generate presigned S3 URLs via `StorageService`.
-- Real-time guidance latency target: < 2 seconds from audio chunk to Socket.IO emission.
+- Real-time guidance latency target: sub-second aspiration (feature spec); engineering floor is < 2 seconds end-to-end from audio chunk arrival to Socket.IO emission. If > 2 seconds, investigate and optimise before shipping.
 
 ### Database — SQLAlchemy and migrations
 - Every schema change needs an Alembic migration in `alembic/versions/`. Never modify production schema manually.

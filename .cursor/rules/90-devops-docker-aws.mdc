@@ -33,20 +33,20 @@ Environment management:
 - Never commit `.env`, `.env.local`, or any file containing actual secrets.
 
 AWS production setup:
-- Compute: ECS Fargate (backend API, Celery workers) or EKS (Kubernetes).
+- Compute: Kubernetes / EKS (per CLAUDE.md infrastructure spec).
 - Database: AWS RDS PostgreSQL 16 (multi-AZ for production).
 - Cache: AWS ElastiCache Redis 7.
 - Object storage: AWS S3 (call recordings, exports).
 - CDN: AWS CloudFront (frontend static assets from Next.js build).
 - Secrets: AWS Secrets Manager (all API keys, DB credentials, JWT secrets).
-- Monitoring: CloudWatch logs + metrics; optionally Prometheus + Grafana.
+- Monitoring: Prometheus + Grafana (per CLAUDE.md); CloudWatch as secondary sink.
 
 Backend health checks:
 - `GET /health` — returns `{"status": "ok"}`, used by load balancer and container health checks.
 - `GET /ready` — returns `{"status": "ready"}` when DB and Redis connections are alive.
 
 Celery worker deployment:
-- Run as a separate ECS task/container from the FastAPI API server.
+- Run as a separate pod/container from the FastAPI API server.
 - Scale Celery workers independently based on queue depth (e.g. auto-scale on `analysis` queue length).
 - Use separate worker pools per queue: `transcription`, `analysis`, `prediction`, `notifications`.
 
