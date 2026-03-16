@@ -1,7 +1,6 @@
 """Celery tasks for batch audio transcription."""
 
 import asyncio
-import uuid
 
 import structlog
 
@@ -32,14 +31,14 @@ def transcribe_recording(self, call_id: str, recording_url: str) -> dict:
         from app.services.storage_service import StorageService
         from app.services.transcription_service import TranscriptionService
 
-        storage = StorageService()
+        StorageService()
 
         # Download recording
         # In production: download from recording_url, upload to S3, then transcribe
         # audio_data = await storage.download(recording_url)
 
         async with async_session_factory() as db:
-            service = TranscriptionService(db)
+            TranscriptionService(db)
             # transcript = await service.transcribe_audio(
             #     call_id=uuid.UUID(call_id),
             #     audio_data=audio_data,

@@ -2,7 +2,6 @@
 
 import audioop
 import io
-import struct
 import wave
 
 
