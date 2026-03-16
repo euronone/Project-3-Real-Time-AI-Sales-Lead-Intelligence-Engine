@@ -4,12 +4,10 @@ import asyncio
 import uuid
 from typing import AsyncGenerator
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.config import settings
 from app.core.security import create_access_token, hash_password
 from app.dependencies import get_db
 from app.main import app
