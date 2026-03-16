@@ -8,7 +8,7 @@ let deviceInstance: unknown = null;
 
 export async function initTwilioDevice(token: string): Promise<unknown> {
   // Dynamic import to prevent SSR crashes
-  const { Device } = await import("twilio-client");
+  const { Device } = await import("@twilio/voice-sdk");
 
   if (deviceInstance) {
     destroyTwilioDevice();
