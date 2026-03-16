@@ -1,0 +1,65 @@
+---
+description: Security, multi-tenancy, and compliance rules for SalesIQ
+alwaysApply: true
+---
+
+Security rules:
+- Never hardcode secrets, API keys, tokens, credentials, or private URLs (Twilio, OpenAI, AWS, JWT secret, DB password).
+- All secrets must be loaded via `app/config.py` using `pydantic-settings` from environment variables or AWS Secrets Manager.
+- Never log passwords, JWT tokens, raw API keys, or sensitive user content (call audio, transcript text).
+- Validate and sanitize all user inputs — never trust request body, query params, or headers blindly.
+- Treat webhook payloads (Twilio, outbound webhooks) as untrusted — validate signatures before processing.
+- Enforce authentication on all protected resources — use FastAPI `Depends(get_current_user)`.
+- Enforce authorization at the service layer — check `tenant_id` and `role` before acting on resources.
+- Use least-privilege access patterns; rate limit sensitive or expensive endpoints.
+
+Multi-tenancy security (critical):
+- Every authenticated request must carry a `tenant_id` extracted from the JWT — never from the request body.
+- Every database query on tenant-scoped data must filter by `tenant_id` — see `30-database-sqlalchemy.mdc`.
+- Never allow cross-tenant data access — if a resource's `tenant_id` does not match the caller's `tenant_id`, return 403.
+- Tenant slugs and IDs must not be guessable or predictable — use UUIDs.
+- Redis pub/sub channels must be namespaced per tenant to prevent cross-tenant event leakage.
+
+RBAC rules:
+- Roles: `super_admin`, `tenant_admin`, `manager`, `agent`.
+- `super_admin`: system-level access only (not tenant-scoped operations).
+- `tenant_admin`: full access within their tenant.
+- `manager`: read analytics, manage agents and leads, view all calls within tenant.
+- `agent`: access only their own assigned leads and calls.
+- Role checks must be enforced in `core/permissions.py` via FastAPI dependencies — not in route handlers.
+
+JWT and auth rules:
+- Access tokens: short TTL (30 minutes default, configurable).
+- Refresh tokens: longer TTL (7 days default, configurable), stored server-side or validated with a rotation strategy.
+- JWT secret must be long (256-bit+) and rotated periodically — never the default "secret".
+- Verify JWT signature and expiry on every protected request.
+- On token refresh, invalidate the old refresh token.
+
+Call recording and PII:
+- Call recordings contain PII (voice audio) — store only in S3 with server-side encryption.
+- Never serve raw Twilio recording URLs — always generate short-lived presigned S3 URLs.
+- Transcripts may contain PII — do not log transcript text; mask in log pipelines if needed.
+- Consider GDPR compliance: support data export and deletion per-tenant on request.
+
+Audit logging:
+- Log all sensitive admin actions in the `audit_logs` table: `action`, `entity_type`, `entity_id`, `user_id`, `tenant_id`, `ip_address`, `changes` (before/after JSONB snapshot).
+- Audit logs must be immutable — never update or delete audit log records.
+- Covered actions: lead.created, lead.deleted, agent.deactivated, tenant.settings_changed, api_key.created, webhook.created.
+
+AI-specific security:
+- Validate GPT-4o structured JSON output before using it to update database records.
+- Do not pass raw user-submitted content directly into AI prompts without sanitization (prompt injection risk).
+- Protect system prompt templates — do not expose them via API responses.
+- Twilio webhook signature validation must be implemented in `app/api/v1/twilio_webhooks.py`.
+
+Infra security:
+- Prefer AWS Secrets Manager for production secrets; `.env` file for local development only.
+- S3 buckets for recordings must have `BlockPublicAccess` enabled; access via presigned URLs only.
+- Do not expose internal FastAPI error detail (`debug=True`) in production.
+- Use CORS restrictions — only allow `APP_CORS_ORIGINS` from `app/config.py`.
+
+Do not:
+- Assume client-side validation is sufficient — always validate server-side.
+- Return internal stack traces or exception details to API clients.
+- Trust LLM output in critical flows (deal status changes, billing) without Pydantic validation.
+- Commit `.env` files or any file containing secrets to the repository.

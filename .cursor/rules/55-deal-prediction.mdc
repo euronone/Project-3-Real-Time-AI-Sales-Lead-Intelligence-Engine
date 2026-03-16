@@ -1,0 +1,54 @@
+---
+description: Deal outcome prediction rules — GPT-4o structured prediction, win probability, red flags
+globs: backend/app/services/prediction_service.py, backend/app/ai/prompts/prediction_prompt.py, backend/app/tasks/prediction_tasks.py, backend/app/api/v1/predictions.py
+---
+
+Deal prediction context:
+SalesIQ predicts deal outcomes (win/loss probability) using GPT-4o with structured JSON output. Predictions are triggered after each call and stored incrementally, giving sales managers a live pipeline view with AI-scored deals.
+
+Prediction input (feed all available context to the prompt):
+- Call transcript summary (not raw full transcript — summarize first)
+- Customer sentiment timeline from the call
+- Detected objections and how they were handled
+- Key moments: pricing discussion, commitment signals, competitor mentions
+- Lead history: all prior calls, deal stage, deal value, priority
+- Prior prediction history for this lead (trend)
+
+Prediction output schema (must match `app/schemas/prediction.py`):
+```json
+{
+  "win_probability": 72,         // 0-100 integer
+  "confidence": "high",          // "low" | "medium" | "high"
+  "key_factors": ["..."],        // factors driving the positive probability
+  "red_flags": ["..."],          // risk factors that could cause loss
+  "recommended_actions": ["..."],// next best actions for the agent
+  "reasoning": "..."             // short LLM reasoning chain (1-3 sentences)
+}
+```
+
+Prediction rules:
+- Always validate the GPT-4o JSON response against the Pydantic `DealPredictionCreate` schema before storing.
+- If validation fails: log raw response, store `null` prediction with an error flag, and do not crash the pipeline.
+- Predictions must be stored in `deal_predictions` with `call_id` (triggering call) and `lead_id`.
+- A lead can have multiple predictions over time — store all; the latest is the current score.
+- The `win_probability` must always be an integer 0–100; reject and retry if outside range.
+- After storing a prediction, emit `deal_prediction_updated` via Socket.IO to the agent's room.
+- Batch re-prediction (`POST /predictions/lead/{id}/refresh`) must be idempotent — do not duplicate.
+- Prediction accuracy tracking: compare `win_probability` at deal close against actual outcome (`won`/`lost`). Store in analytics table for model improvement reporting.
+
+Red flag detection (within prediction):
+- Recognized red flags: competitor mentioned (by name), pricing objection not resolved, customer sentiment consistently negative, agent talk ratio > 70%, multiple follow-up reschedules.
+- Red flags must also trigger `red_flag_alert` Socket.IO event during live calls for immediate agent awareness.
+- Red flags stored in `deal_predictions.red_flags` (JSONB array) and `call_analyses.red_flags` (JSONB array).
+
+Prediction API:
+- `GET /api/v1/predictions/pipeline` — all leads with their latest prediction, sorted by win_probability.
+- `GET /api/v1/predictions/lead/{lead_id}` — full prediction history for a lead.
+- `POST /api/v1/predictions/lead/{lead_id}/refresh` — force re-prediction using latest data.
+- All endpoints must be tenant-scoped (filter by tenant_id from auth token).
+
+Do not:
+- Trigger prediction synchronously in HTTP request handlers — always dispatch to `prediction_tasks.py` via Celery.
+- Use prediction scores to automatically change lead status — predictions are advisory only.
+- Expose raw GPT-4o reasoning to end-users without review — the `reasoning` field is for agent context only.
+- Store predictions without linking to both `lead_id` and the triggering `call_id`.

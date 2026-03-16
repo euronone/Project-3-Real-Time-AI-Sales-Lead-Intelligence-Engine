@@ -1,0 +1,65 @@
+---
+description: Testing and code quality rules for SalesIQ
+alwaysApply: true
+---
+
+Testing philosophy:
+- Write production-quality code with tests for critical behavior.
+- Prefer deterministic unit tests for business logic (lead service, call service, prediction, analysis).
+- Add integration tests for APIs, services, and pipelines crossing boundaries.
+- Mock all external services in tests: OpenAI, Twilio, AWS S3, Redis.
+
+Backend testing stack:
+- `pytest` + `pytest-asyncio` — async test runner
+- `httpx` — async test client for FastAPI endpoint tests
+- `conftest.py` — shared async fixtures: test DB session, test client, mock tenant + user
+
+Backend test coverage priorities:
+1. Auth endpoints: register, login, refresh, protected route access, role enforcement.
+2. Lead CRUD: create, list with filters, assign, import CSV, tenant isolation (cross-tenant rejection).
+3. Call endpoints: initiate, history list, detail with transcript + analysis, recording URL.
+4. AI pipeline: transcription → analysis → prediction flow (mock OpenAI responses).
+5. Twilio webhooks: voice, status callback, recording callback (mock Twilio payloads).
+6. Real-time: WebSocket connection, Socket.IO join/leave room, event emission (mock Redis pub/sub).
+7. Prediction endpoints: pipeline list, lead prediction history, force refresh.
+8. Multi-tenancy: verify that tenant A cannot access tenant B's data on any endpoint.
+
+Frontend testing stack:
+- `Vitest` + `React Testing Library` — unit and component tests
+- `Playwright` — E2E tests for critical user journeys
+
+Frontend test priorities:
+1. Auth flow: login form submission, token storage, role-based redirect, logout.
+2. Core UI components: Button, Modal, Table, Form (react-hook-form + zod validation).
+3. Live call UI: Socket.IO event handling in `use-live-transcript`, transcript append behavior.
+4. E2E critical journeys:
+   - Login → Admin creates lead → assigns to agent
+   - Agent login → initiates call → views live transcript + guidance → post-call analysis
+   - Admin views analytics dashboard
+
+Mocking rules:
+- Mock OpenAI at the HTTP level (don't call real API in tests) — use `pytest-mock` or `respx`.
+- Mock Twilio webhooks with test payloads from Twilio's official test fixtures.
+- Mock S3 using `moto` library or a mock `StorageService`.
+- Never depend on live external APIs (OpenAI, Twilio, S3) in normal test runs — CI must pass without real credentials.
+
+Code quality:
+- Use `ruff` for Python linting and formatting (already configured in `pyproject.toml`).
+- Use `eslint` + TypeScript strict mode for frontend linting.
+- No `any` types in TypeScript — CI must fail on TypeScript errors.
+- No unused imports, dead code, or commented-out code blocks in PRs.
+- All new service methods should have at least a basic happy-path test.
+
+Definition of Done (for any feature):
+- Code reviewed by at least 1 team member.
+- Unit tests written and passing.
+- No TypeScript or Python type errors.
+- API endpoints documented in OpenAPI schema (auto-generated).
+- Works in Docker Compose local environment.
+- No hardcoded secrets or credentials.
+
+Do not:
+- Add major logic (new services, AI prompts, real-time events) without at least basic tests.
+- Create brittle tests tied to unstable implementation details (mock exact SQL, hardcode row IDs).
+- Depend on live Twilio, OpenAI, or AWS S3 in normal test runs.
+- Skip testing multi-tenancy isolation — cross-tenant data leakage is a critical security bug.

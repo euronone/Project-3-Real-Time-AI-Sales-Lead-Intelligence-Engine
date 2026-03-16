@@ -1,0 +1,47 @@
+---
+description: External integrations and outbound webhook rules for SalesIQ
+globs: backend/app/services/webhook_service.py, backend/app/api/v1/webhooks.py, backend/app/api/v1/twilio_webhooks.py
+---
+
+Integration scope (current):
+- **Twilio:** Inbound webhooks (voice events, status callbacks, recording callbacks, Media Streams)
+- **Outbound webhooks:** SalesIQ → tenant's external systems on events (call completed, deal prediction updated, lead status changed, red flag detected)
+- **AWS S3:** Call recording storage (not a third-party integration — see `25-voice-twilio.mdc`)
+
+Planned Phase 2 integrations (do not build yet — design to support):
+- CRM: Salesforce, HubSpot (lead sync, call activity log, deal stage updates)
+- Calendar: Google Calendar, Microsoft Outlook (follow-up scheduling)
+- Collaboration: Slack, Microsoft Teams (deal alert notifications)
+
+Inbound Twilio webhook rules (`app/api/v1/twilio_webhooks.py`):
+- Validate Twilio request signature (`X-Twilio-Signature` header) on every webhook — reject unsigned requests with 403.
+- Webhook handlers must respond within 15 seconds (Twilio timeout) — dispatch long tasks to Celery immediately.
+- Supported Twilio webhooks: `POST /twilio/voice` (TwiML response), `POST /twilio/status` (call state), `POST /twilio/recording` (recording ready).
+- Media Streams: `WebSocket /twilio/media-stream` — handled in `app/realtime/call_stream_handler.py`.
+
+Outbound webhook rules (`app/services/webhook_service.py`):
+- Tenants configure outbound webhook endpoints via `POST /api/v1/webhooks`.
+- On trigger events, `WebhookService.dispatch()` sends a signed POST request to the tenant's configured URL.
+- Sign outbound webhooks with HMAC-SHA256 using a per-tenant webhook secret — include in `X-SalesIQ-Signature` header.
+- Implement retry with exponential backoff on failed deliveries (3 retries, 30s → 60s → 120s delays).
+- Log all outbound webhook attempts (URL, event, response code, latency) in `audit_logs` or a webhook delivery log.
+- Webhook payloads must not include PII beyond what the event semantically requires.
+
+Supported outbound webhook events:
+- `call.completed` — triggered when a call ends; payload: call summary, duration, agent, lead
+- `call.analysis_ready` — triggered when post-call AI analysis is stored
+- `deal.prediction_updated` — triggered when a new prediction is stored for a lead
+- `lead.status_changed` — triggered when lead status changes (e.g. qualified → proposal)
+- `red_flag.detected` — triggered on post-call red flag detection
+
+CRM/Calendar integration design (Phase 2 — prepare adapter interfaces now):
+- Create `app/integrations/` directory with adapter interfaces per integration.
+- Each integration adapter must implement a common interface (e.g. `CRMAdapter.push_call_activity(call_id)`).
+- Credentials per integration must be stored per-tenant in the database (encrypted) — never hardcoded.
+- Integration sync must be async (Celery task) — never block the call pipeline.
+
+Do not:
+- Couple core call or lead logic tightly to a specific CRM — design for pluggable integrations.
+- Expose internal IDs or sensitive tenant data in outbound webhook payloads beyond what is needed.
+- Skip webhook signature validation on inbound Twilio requests.
+- Change outbound webhook event schema without versioning — tenants' systems depend on stable payloads.

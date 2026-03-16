@@ -1,0 +1,65 @@
+---
+description: Real-time system rules — Socket.IO, Twilio Media Streams, Redis pub/sub bridge
+globs: backend/app/realtime/**, frontend/src/hooks/use-socket.ts, frontend/src/hooks/use-live-transcript.ts, frontend/src/lib/socket.ts
+---
+
+Real-time stack:
+- `python-socketio` — Socket.IO server integrated with FastAPI
+- Redis pub/sub — bridge between AI processing workers and Socket.IO server
+- Twilio Media Streams — real-time audio delivery over WebSocket to backend
+- Socket.IO client (`socket.io-client`) — frontend connection to real-time events
+
+Backend real-time components:
+- `app/realtime/socket_manager.py` — Socket.IO server instance, room management, emit helpers
+- `app/realtime/call_stream_handler.py` — Twilio Media Stream WebSocket consumer and audio chunking
+- `app/realtime/event_publisher.py` — publishes events to Redis pub/sub channels
+
+Socket.IO rooms:
+- Each active call has a room named `call:{call_sid}`.
+- Agents join/leave rooms via `join_call_room` / `leave_call_room` events.
+- Events are scoped to rooms — never broadcast globally across all tenants.
+- Tenant isolation: validate that the requesting user belongs to the tenant owning the call before allowing room join.
+
+Server → Client events (these names must not change without coordinating frontend):
+| Event | Payload | Description |
+|---|---|---|
+| `transcript_chunk` | `{speaker, text, start_time, end_time, confidence}` | Live transcript segment |
+| `ai_guidance` | `{type, content, confidence}` | AI suggestion (objection response, question, warning, battle card) |
+| `sentiment_update` | `{score, label, timestamp}` | Live sentiment score update |
+| `red_flag_alert` | `{type, description, severity}` | Immediate red flag during call |
+| `call_status_changed` | `{status, call_sid, timestamp}` | Call state transition |
+| `notification` | `{type, title, message, data}` | General in-app notification push |
+| `deal_prediction_updated` | `{lead_id, win_probability, confidence}` | New prediction available |
+
+Client → Server events:
+| Event | Payload | Description |
+|---|---|---|
+| `join_call_room` | `{call_sid}` | Agent joins live call room |
+| `leave_call_room` | `{call_sid}` | Agent leaves live call room |
+
+Backend event pipeline:
+1. Twilio Media Stream audio → `call_stream_handler.py` → chunk audio → Whisper API
+2. Whisper transcript → `event_publisher.py` → Redis pub/sub (`call:{call_sid}:transcript`)
+3. Transcript → GPT-4o guidance → `event_publisher.py` → Redis pub/sub (`call:{call_sid}:guidance`)
+4. `socket_manager.py` subscribes to Redis → emits to Socket.IO room `call:{call_sid}`
+
+Frontend Socket.IO rules:
+- Socket.IO client must be initialized once in `lib/socket.ts` — singleton connection.
+- Connection must authenticate via JWT on connect: `io(url, { auth: { token } })`.
+- `hooks/use-socket.ts` manages lifecycle (connect, disconnect, reconnect) and room membership.
+- `hooks/use-live-transcript.ts` consumes `transcript_chunk` events and appends to transcript state.
+- Use `useRef` for transcript accumulation — avoid triggering re-render on every word.
+- Use virtualized lists (e.g. `react-window`) for transcript display when transcript is long.
+- Always leave call room on component unmount or call end — avoid dangling room memberships.
+
+Performance rules:
+- Real-time transcript → guidance round-trip latency target: < 2 seconds.
+- Do not call GPT-4o on every transcript chunk — batch at pause points or 10-15s windows.
+- Use Redis pub/sub (not polling) for all real-time event delivery.
+- Socket.IO room size per call: typically 1-3 users (agent + optional supervisor); design allows up to 10 without degradation.
+
+Do not:
+- Emit Socket.IO events from HTTP route handlers — always go through `event_publisher.py` → Redis → `socket_manager.py`.
+- Share Socket.IO rooms across tenants — always include `tenant_id` in room authorization.
+- Use Socket.IO for large binary payloads (e.g. audio chunks) — use Twilio Media Streams WebSocket for audio.
+- Hardcode Socket.IO URL in frontend components — use `NEXT_PUBLIC_SOCKET_URL` env variable.
