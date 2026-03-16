@@ -40,3 +40,7 @@ htmlcov/
 # Misc
 *.bak
 *.tmp
+
+# Sprint plan (local only — do not commit)
+SalesIQ_4Day_Sprint_Plan.xlsx
+~$SalesIQ_4Day_Sprint_Plan.xlsx
