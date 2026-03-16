@@ -8,14 +8,14 @@ let deviceInstance: unknown = null;
 
 export async function initTwilioDevice(token: string): Promise<unknown> {
   // Dynamic import to prevent SSR crashes
-  const { Device } = await import("@twilio/voice-sdk");
+  const { Device, Call } = await import("@twilio/voice-sdk");
 
   if (deviceInstance) {
     destroyTwilioDevice();
   }
 
   const device = new Device(token, {
-    codecPreferences: ["opus", "pcmu"],
+    codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
     fakeLocalDTMF: true,
     enableRingingState: true,
   });
