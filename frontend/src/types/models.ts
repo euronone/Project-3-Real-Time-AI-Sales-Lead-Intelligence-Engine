@@ -179,3 +179,16 @@ export interface AgentPerformance extends User {
   avg_agent_score: number;
   total_deals_won: number;
 }
+
+export interface AgentScorecard {
+  agent_id: string;
+  period_days: number;
+  total_calls: number;
+  avg_call_duration: number; // seconds
+  conversion_rate: number;   // 0–100 %
+  avg_agent_score: number;   // 0–100
+  total_deals_won: number;
+  top_objections: string[];
+  call_trend: Array<{ date: string; count: number }>;
+  score_trend: Array<{ date: string; score: number }>;
+}

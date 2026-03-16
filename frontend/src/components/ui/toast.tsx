@@ -13,13 +13,23 @@ import { cn } from "@/lib/utils";
 
 type ToastVariant = "success" | "error" | "warning" | "info";
 
+type ToastType = "success" | "error" | "warning" | "info";
+
+export interface ShowToastOptions {
+  type: ToastType;
+  title: string;
+  message?: string;
+}
+
 interface Toast {
   id: string;
   variant: ToastVariant;
-  message: string;
+  title: string;
+  message?: string;
 }
 
 interface ToastContextValue {
+  showToast: (options: ShowToastOptions) => void;
   toast: {
     success: (message: string) => void;
     error: (message: string) => void;
@@ -55,13 +65,20 @@ const variantConfig: Record<
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((variant: ToastVariant, message: string) => {
+  const showToast = useCallback((options: ShowToastOptions) => {
     const id = Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev.slice(-4), { id, variant, message }]);
+    setToasts((prev) => [
+      ...prev.slice(-4),
+      { id, variant: options.type, title: options.title, message: options.message },
+    ]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
   }, []);
+
+  const addToast = useCallback((variant: ToastVariant, message: string) => {
+    showToast({ type: variant, title: message });
+  }, [showToast]);
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -75,7 +92,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ToastContext.Provider value={{ toast }}>
+    <ToastContext.Provider value={{ showToast, toast }}>
       {children}
       {typeof window !== "undefined" &&
         createPortal(
@@ -96,7 +113,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   role="alert"
                 >
                   <span className="flex-shrink-0 mt-0.5">{config.icon}</span>
-                  <p className="flex-1 text-sm font-medium">{t.message}</p>
+                  <div className="flex-1 flex flex-col gap-0.5">
+                    <p className="text-sm font-semibold">{t.title}</p>
+                    {t.message && (
+                      <p className="text-sm opacity-90">{t.message}</p>
+                    )}
+                  </div>
                   <button
                     onClick={() => removeToast(t.id)}
                     className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity"
