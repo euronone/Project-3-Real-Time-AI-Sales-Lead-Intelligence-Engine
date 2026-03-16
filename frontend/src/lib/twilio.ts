@@ -16,8 +16,6 @@ export async function initTwilioDevice(token: string): Promise<unknown> {
 
   const device = new Device(token, {
     codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
-    fakeLocalDTMF: true,
-    enableRingingState: true,
   });
 
   device.on("ready", () => {
