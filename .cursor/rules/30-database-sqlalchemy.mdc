@@ -1,0 +1,55 @@
+---
+description: SQLAlchemy async ORM, Alembic migrations, and multi-tenant isolation rules
+globs: backend/app/models/**, backend/app/core/database.py, backend/alembic/**
+---
+
+Database stack:
+- PostgreSQL 16 (primary data store)
+- SQLAlchemy 2.0 with async engine (`asyncpg` driver)
+- Alembic for schema migrations
+- Row-level tenant isolation via `tenant_id` filter on every query
+
+Model rules:
+- All models must inherit from `Base` in `app/models/base.py`.
+- All models must use `TimestampMixin` (provides `created_at`, `updated_at` with auto-update).
+- All multi-tenant models must use `TenantMixin` (provides `tenant_id` UUID foreign key).
+- Use UUIDs (not integers) for all primary keys.
+- Use SQLAlchemy `Mapped` and `mapped_column` with explicit Python types (SQLAlchemy 2.0 style).
+- Define relationships explicitly with `relationship()` and appropriate `back_populates`.
+- Use enums (`sqlalchemy.Enum`) for status, role, priority, direction, and similar categorical fields — never raw strings.
+- Store flexible/extensible data as `JSONB` (e.g. `custom_fields`, `flow_definition`, `settings`, `key_factors`).
+
+Migration rules:
+- Every schema change must have an Alembic migration in `alembic/versions/`.
+- Run `alembic upgrade head` before deploying — never apply manual SQL in production.
+- Never modify existing migration files; always create a new revision.
+- Migration names must be descriptive (e.g. `add_disposition_to_calls`, `add_tenant_settings_column`).
+
+Tenant isolation rules:
+- **Every** query on a tenant-scoped model must filter by `tenant_id`.
+- Tenant ID is extracted from the JWT token and injected via the `get_current_tenant` dependency.
+- Never trust a `tenant_id` from the request body for ownership checks — always use the authenticated user's tenant.
+- Service methods must accept `tenant_id` as a parameter and apply it at the query level.
+- Do not use global SQLAlchemy session scope; use per-request async sessions from `core/database.py`.
+
+Session rules:
+- Use `async with AsyncSession` or FastAPI dependency injection for session lifecycle.
+- Never share a session across concurrent async tasks.
+- All DB queries must use `await session.execute(...)` and `await session.commit()`.
+- Use `session.add()` for inserts; use `session.execute(update(...))` for bulk updates.
+- Use `selectinload` or `joinedload` for eager loading relationships — avoid N+1 queries.
+
+Key entity relationships (do not break these):
+- `tenants` ← `users` (tenant_id FK)
+- `users` ← `leads` (assigned_agent_id FK, nullable)
+- `campaigns` ← `leads` (campaign_id FK, nullable)
+- `leads` ← `calls` (lead_id FK)
+- `calls` ← `call_transcripts` (call_id FK, one-to-many)
+- `calls` ← `call_analyses` (call_id FK, one-to-one)
+- `leads` ← `deal_predictions` (lead_id FK, one-to-many)
+
+Do not:
+- Write raw SQL strings; use SQLAlchemy ORM or `text()` only when necessary.
+- Bypass tenant_id filtering — all queries on tenant data must be scoped.
+- Put migrations in the same commit as application code changes to keep rollback clean.
+- Use synchronous SQLAlchemy engine anywhere — the entire backend is async.

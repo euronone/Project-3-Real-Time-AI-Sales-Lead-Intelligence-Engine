@@ -1,0 +1,48 @@
+---
+description: Observability, monitoring, logging, and analytics rules for SalesIQ
+globs: backend/app/core/**, backend/app/services/**, backend/app/ai/**
+---
+
+Observability scope:
+- Structured logs with correlation IDs for all API requests and background tasks.
+- AI response monitoring: latency, token usage, model ID, error rates per OpenAI call.
+- Call pipeline monitoring: transcription latency, analysis latency, prediction latency.
+- Real-time system: WebSocket connection count, Socket.IO room membership, pub/sub event rates.
+- Business analytics: calls per tenant, conversion rates, agent scores, prediction accuracy.
+
+Logging rules:
+- Use `structlog` for all backend logging — JSON-formatted, machine-parseable.
+- Every log entry on a request path must include: `request_id`, `tenant_id`, `user_id` (if available), `level`, `message`, `duration_ms`.
+- Every AI call log must include: `model`, `prompt_tokens`, `completion_tokens`, `total_tokens`, `latency_ms`, `call_id` (if applicable).
+- Every Celery task log must include: `task_id`, `task_name`, `call_id`, `tenant_id`, `status`.
+- Log at `INFO` for successful flows, `WARNING` for recoverable issues, `ERROR` for failures with full context.
+- Do not log PII: transcript text, customer names, phone numbers, email addresses — mask or redact in log pipelines.
+
+Key metrics to instrument (SalesIQ-specific):
+- `call.initiated` — counter per tenant
+- `call.completed` — counter per tenant
+- `transcription.latency_ms` — histogram
+- `analysis.latency_ms` — histogram (GPT-4o call analysis)
+- `prediction.latency_ms` — histogram (GPT-4o deal prediction)
+- `guidance.latency_ms` — histogram (real-time guidance generation < 2s target)
+- `websocket.active_connections` — gauge
+- `celery.task.failed` — counter per task type
+- `openai.tokens_used` — counter per model per tenant
+
+Alerting priorities:
+- CRITICAL: Twilio webhook handler down, OpenAI API errors above 5% threshold, Celery worker queue depth > 100.
+- WARNING: Real-time guidance latency > 3s, transcription failure rate > 2%, Redis pub/sub lag.
+- INFO: Daily call volume summaries, prediction accuracy drift.
+
+Analytics endpoints (already in `app/api/v1/analytics.py`):
+- Dashboard KPIs: total calls, conversion rate, active agents, pipeline value, AI score trends.
+- Conversion funnel: leads by status stage.
+- Agent leaderboard: ranked by calls, conversion rate, average score.
+- Call trends: volume and duration over time.
+- Prediction accuracy: predicted vs actual win rate over time.
+
+Do not:
+- Use `print()` statements for production diagnostics — always use `structlog`.
+- Expose internal error details or stack traces to API clients — log them, return sanitized messages.
+- Add observability as an afterthought — include logging and task instrumentation in new features by default.
+- Alert on every warning — design alerts to be actionable and avoid alert fatigue.

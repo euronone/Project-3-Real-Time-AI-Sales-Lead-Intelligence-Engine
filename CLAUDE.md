@@ -947,3 +947,65 @@ docker-compose logs -f backend        # Follow backend logs
 - Component files: PascalCase, one component per file
 - Hooks: `use-*.ts` in hooks/ directory
 - Zod schemas mirror backend Pydantic schemas for client-side validation
+
+---
+
+## Guardrails for Claude Code
+
+These rules enforce the same constraints as `.cursor/rules/`. Follow them on every change.
+
+### Architecture — where code belongs
+- Routes are thin: only request parsing, response shaping, and `Depends(...)` calls. No business logic.
+- Business logic → `app/services/`. AI logic → `app/ai/`. Real-time → `app/realtime/`. Async jobs → `app/tasks/`.
+- Prompt templates → `app/ai/prompts/` only. Never inline prompt text inside service or task files.
+- New API endpoints go in `app/api/v1/` and must be registered in `app/api/router.py`.
+- Frontend: extend `components/ui/` primitives before creating new patterns.
+
+### Multi-tenancy — never break these
+- Every SQLAlchemy query on tenant-scoped data **must** filter by `tenant_id`.
+- `tenant_id` is extracted from the authenticated user via `Depends(get_current_user)` in `app/dependencies.py` — never from the request body.
+- If a resource's `tenant_id` does not match the caller's `tenant_id`, return 403. No exceptions.
+- Redis pub/sub channels and cache keys must be namespaced by `tenant_id`.
+
+### AI pipeline — task dispatch rules
+- Never call OpenAI (Whisper or GPT-4o) synchronously inside an HTTP request handler.
+- Post-call transcription, analysis, and prediction must be dispatched to Celery tasks immediately after the Twilio recording callback.
+- Celery task order: `transcription_tasks` → `analysis_tasks` → `prediction_tasks` → `notification_tasks`.
+- All Celery tasks must be idempotent — running twice on the same `call_id` must not create duplicates.
+- Always validate GPT-4o structured JSON output against the Pydantic schema before writing to the database. On validation failure: log raw response, store null/error, do not crash the pipeline.
+
+### Real-time — Socket.IO event rules
+- Never emit Socket.IO events from HTTP route handlers. The only valid path is: service → `event_publisher.py` → Redis pub/sub → `socket_manager.py` → Socket.IO room.
+- Socket.IO rooms are scoped per call (`call:{call_sid}`) and validated per tenant before allowing join.
+- Event names are a contract with the frontend — do not rename without coordinating both sides:
+  `transcript_chunk`, `ai_guidance`, `sentiment_update`, `red_flag_alert`, `call_status_changed`, `notification`, `deal_prediction_updated`.
+
+### Twilio — voice and webhooks
+- All Twilio SDK calls go through `app/services/twilio_service.py` only.
+- All S3 operations go through `app/services/storage_service.py` only.
+- Twilio webhook handlers must validate the `X-Twilio-Signature` header before processing any payload.
+- Never serve raw Twilio recording URLs to clients — always generate presigned S3 URLs via `StorageService`.
+- Real-time guidance latency target: sub-second aspiration (feature spec); engineering floor is < 2 seconds end-to-end from audio chunk arrival to Socket.IO emission. If > 2 seconds, investigate and optimise before shipping.
+
+### Database — SQLAlchemy and migrations
+- Every schema change needs an Alembic migration in `alembic/versions/`. Never modify production schema manually.
+- Never modify existing migration files — always create a new revision.
+- Use `selectinload` / `joinedload` for relationships to avoid N+1 queries.
+- Do not use the synchronous SQLAlchemy engine anywhere — the entire backend is async.
+
+### Security — hard rules
+- Never hardcode secrets, API keys, or credentials anywhere in code. All secrets via `app/config.py` from env vars.
+- Never commit `.env` or `.env.local` files.
+- Never log transcript text, customer names, phone numbers, JWT tokens, or raw API keys.
+- Never return internal stack traces or exception detail to API clients — log them, return a sanitized message.
+- Do not trust LLM output in critical flows without Pydantic validation first.
+
+### Testing
+- Never call live OpenAI, Twilio, or AWS S3 APIs in tests — mock all external services.
+- Every new service method needs at least a basic happy-path test.
+- Multi-tenancy isolation must be tested on every new endpoint — verify tenant A cannot access tenant B's data.
+
+### Response style
+- Prefer precise, minimal, production-ready changes. Do not rewrite unrelated code.
+- When adding a new feature, also note which `.env.example` variables, Alembic migrations, and frontend types need updating.
+- Do not produce demo/toy code when production code is requested.

@@ -1,0 +1,37 @@
+---
+description: Redis caching, pub/sub, and Celery queue coordination rules
+globs: backend/app/realtime/**, backend/app/tasks/**, backend/app/core/**
+---
+
+Redis usage in SalesIQ:
+- **Celery broker:** Task queue for async AI pipeline jobs (separate DB index from cache)
+- **Celery result backend:** Task result storage
+- **Real-time pub/sub:** Bridge between backend AI processing and Socket.IO server
+- **Session/cache:** Short-lived data like active call context, rate limit counters
+
+Redis key naming conventions:
+- Real-time call events: `call:{call_sid}:transcript`, `call:{call_sid}:guidance`
+- Pub/sub channels: `tenant:{tenant_id}:call:{call_sid}` for per-tenant per-call events
+- Agent presence: `agent:{user_id}:active_call` (with TTL)
+- Rate limiting: `ratelimit:{tenant_id}:{endpoint}:{window}`
+
+Pub/sub rules (real-time pipeline):
+- Backend AI processing publishes events to Redis pub/sub channels in `app/realtime/event_publisher.py`.
+- `app/realtime/socket_manager.py` subscribes to Redis channels and relays events to Socket.IO rooms.
+- Pub/sub channels must be scoped per tenant and per call to prevent cross-tenant event leakage.
+- Events must be serialized as JSON with a defined schema — never raw strings.
+- Use `aioredis` or `redis.asyncio` for async pub/sub; do not block the event loop.
+
+Caching rules:
+- Cache expensive, repeated reads where there is a clear performance benefit.
+- Choose TTLs intentionally — short TTL for volatile data (active call context), longer for stable data (tenant settings).
+- Make cache invalidation explicit — invalidate on write, not lazily.
+- Do not cache tenant_id-sensitive data without including tenant_id in the cache key.
+- Do not rely on cache as the only source of truth — always fall back to PostgreSQL.
+
+Do not:
+- Scatter raw Redis calls across the codebase — wrap all Redis access in dedicated utility classes or services.
+- Store large payloads (e.g. full transcripts) in Redis without TTL or size limits.
+- Mix pub/sub channel semantics with cache key semantics in the same Redis key space.
+- Use the same Redis DB index for Celery broker and application cache — keep them separated.
+- Store PII (call audio, transcript text) in Redis without encryption and justification.

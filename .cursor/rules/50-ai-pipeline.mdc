@@ -1,0 +1,51 @@
+---
+description: AI pipeline rules — STT transcription, GPT-4o call analysis, real-time guidance
+globs: backend/app/ai/**, backend/app/services/transcription_service.py, backend/app/services/analysis_service.py, backend/app/services/guidance_service.py
+---
+
+AI pipeline stack:
+- OpenAI Whisper API (`whisper-1`) — speech-to-text for call audio
+- OpenAI GPT-4o — call analysis, deal prediction, real-time guidance, post-call summary
+- `app/ai/openai_client.py` — async OpenAI SDK wrapper (chat_completion, streaming, Whisper)
+- `app/ai/pipeline.py` — orchestrator: STT → analysis → prediction → notification
+- `app/ai/prompts/` — prompt templates (never inline prompts in service/task files)
+
+Pipeline stages and responsibilities:
+1. **Transcription** (`transcription_service.py`): Audio chunk → Whisper API → transcript segment with speaker label and timestamps.
+2. **Analysis** (`analysis_service.py`): Full transcript → GPT-4o → structured analysis (sentiment, topics, objections, key moments, talk ratio, filler words, scorecard, feedback, red flags, action items).
+3. **Summary** (`analysis_service.py`): Full transcript → GPT-4o → concise call summary stored in `call_analyses.summary`.
+4. **Prediction** (`prediction_service.py`): Transcript summary + lead history + deal context → GPT-4o → `{win_probability, confidence, key_factors, red_flags, recommended_actions, reasoning}`.
+5. **Guidance** (`guidance_service.py`): Live transcript chunk + conversation context → streaming GPT-4o → real-time suggestion (objection response, next question, warning alert, battle card).
+
+Prompt rules (critical):
+- All prompt templates must live in `app/ai/prompts/` — never inline prompt text inside service or task files.
+- Prompts must be versioned with comments (e.g. `# v1 — initial`, `# v2 — added competitor mention detection`).
+- Prompts must use template variables, not f-strings with dynamic text concatenated inline.
+- Prompts must include: role/persona, task description, output format specification, constraints, and examples where helpful.
+- For structured outputs (analysis, prediction): use GPT-4o's `response_format={"type": "json_object"}` and validate against a Pydantic schema before storing.
+- Do not pass full raw transcripts to prompts when a summary is sufficient — respect token budgets.
+
+Real-time guidance rules:
+- Guidance latency target: < 2 seconds from transcript chunk receipt to Socket.IO emission.
+- Use GPT-4o streaming (`stream=True`) for guidance to reduce time-to-first-token.
+- Buffer transcript chunks intelligently — do not call GPT-4o on every word; batch at natural pause points (silence detection or 10–15 second windows).
+- Guidance types: objection response, recommended question, warning alert (frustration/off-script), competitive battle card, pricing guidance.
+- Guidance must be emitted per call room via Socket.IO (`ai_guidance` event) — never broadcast globally.
+
+Output validation:
+- Always validate GPT-4o structured JSON output against the corresponding Pydantic schema before storing.
+- If validation fails, log the raw response, return a fallback (empty analysis / null prediction), and alert via Sentry/monitoring.
+- Do not trust LLM output for critical business flows (e.g. deal status changes) without validation.
+
+Cost and performance:
+- Log `prompt_tokens`, `completion_tokens`, and `total_tokens` for every GPT-4o call.
+- Use GPT-3.5-turbo for low-stakes tasks (e.g. simple classification) if latency or cost is a concern.
+- Cache static parts of prompts (system message, few-shot examples) — do not re-send full KB articles if not changed.
+- Monitor token usage per tenant to detect runaway costs.
+
+Do not:
+- Mix prompt text into service business logic — prompts are in `app/ai/prompts/`.
+- Call OpenAI APIs directly from route handlers — always go through services or Celery tasks.
+- Return unvalidated LLM JSON directly to clients.
+- Use blocking synchronous OpenAI calls — always use async.
+- Hardcode OpenAI model names in service files — reference from `app/config.py`.

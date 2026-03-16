@@ -1,0 +1,58 @@
+---
+description: Docker, CI/CD, and AWS deployment rules for SalesIQ
+globs: .github/**, docker-compose*.yml, backend/Dockerfile, frontend/Dockerfile
+---
+
+Deployment stack:
+- Docker + Docker Compose (local development and staging)
+- GitHub Actions (CI/CD pipelines)
+- AWS (production: ECS/EKS, RDS PostgreSQL, ElastiCache Redis, S3, CloudFront, Secrets Manager)
+- PostgreSQL 16 (managed via AWS RDS in production)
+- Redis 7 (managed via AWS ElastiCache in production)
+
+Docker rules:
+- Backend Dockerfile: Python 3.12, multi-stage build (builder → runtime), non-root user.
+- Frontend Dockerfile: Node 20, multi-stage build (deps → builder → runner), `next start` production server.
+- Do not bake secrets into Docker images — pass via environment variables at runtime.
+- Keep image sizes minimal — use `.dockerignore` to exclude dev deps, test files, local `.env`.
+- All services in `docker-compose.yml` must have health checks defined.
+- Service startup order: PostgreSQL → Redis → backend → Celery worker → frontend.
+
+GitHub Actions CI rules (`.github/workflows/`):
+- `ci-backend.yml`: lint (ruff) → type check (mypy) → pytest (with mocked external services) → build Docker image.
+- `ci-frontend.yml`: lint (eslint) → type check (tsc --noEmit) → build (next build) → Vitest.
+- All checks must pass before merge to `main` or `develop`.
+- Use GitHub Actions secrets for CI credentials — never store in code.
+- On push to `main`: run full CI + deploy to staging.
+- On tagged release: deploy to production.
+
+Environment management:
+- Three environments: `development` (local Docker Compose), `staging` (AWS, mirrors prod), `production` (AWS).
+- Each environment has its own `.env` or AWS Secrets Manager secret set.
+- `backend/.env.example` and `frontend/.env.local.example` must always be up to date with all required variables.
+- Never commit `.env`, `.env.local`, or any file containing actual secrets.
+
+AWS production setup:
+- Compute: Kubernetes / EKS (per CLAUDE.md infrastructure spec).
+- Database: AWS RDS PostgreSQL 16 (multi-AZ for production).
+- Cache: AWS ElastiCache Redis 7.
+- Object storage: AWS S3 (call recordings, exports).
+- CDN: AWS CloudFront (frontend static assets from Next.js build).
+- Secrets: AWS Secrets Manager (all API keys, DB credentials, JWT secrets).
+- Monitoring: Prometheus + Grafana (per CLAUDE.md); CloudWatch as secondary sink.
+
+Backend health checks:
+- `GET /health` — returns `{"status": "ok"}`, used by load balancer and container health checks.
+- `GET /ready` — returns `{"status": "ready"}` when DB and Redis connections are alive.
+
+Celery worker deployment:
+- Run as a separate pod/container from the FastAPI API server.
+- Scale Celery workers independently based on queue depth (e.g. auto-scale on `analysis` queue length).
+- Use separate worker pools per queue: `transcription`, `analysis`, `prediction`, `notifications`.
+
+Do not:
+- Hardcode AWS resource IDs, region names, S3 bucket names, or RDS endpoints in application code — use env vars.
+- Mix local-only Docker Compose hacks into production `Dockerfile` or application logic.
+- Deploy to production without running full CI pipeline.
+- Assume synchronous task processing scales — Celery workers must be horizontally scalable.
+- Share environment-specific config between `development` and `production` environments.

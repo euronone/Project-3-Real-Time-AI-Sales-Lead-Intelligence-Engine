@@ -1,0 +1,67 @@
+---
+description: FastAPI backend rules for SalesIQ
+globs: backend/**, app/**.py
+---
+
+Backend stack:
+- Python 3.12+
+- FastAPI (async)
+- SQLAlchemy 2.0 (async) + Alembic (migrations)
+- PostgreSQL 16 (primary data store)
+- Redis 7 (caching, session, real-time pub/sub, Celery broker)
+- Celery (async task queue for transcription, analysis, prediction, notifications)
+- OpenAI Python SDK (GPT-4o for analysis/prediction/guidance, Whisper for STT)
+- Twilio Python SDK (Voice, Media Streams, recording)
+- boto3 (AWS S3 for call recordings and exports)
+- python-socketio (Socket.IO server for real-time frontend updates)
+- Pydantic v2 (validation and schemas)
+
+Backend rules:
+- Use clean architecture. Routes → Services → (Repositories / ORM sessions).
+- Routes/controllers must only handle HTTP/WebSocket concerns (request parsing, response shaping, dependency injection).
+- Business logic must live in services (`app/services/`).
+- AI logic must live in `app/ai/` — openai_client, pipeline, prompts.
+- Real-time logic must live in `app/realtime/` — socket_manager, call_stream_handler, event_publisher.
+- Async task logic must live in `app/tasks/` — Celery workers.
+- Validation must be done using Pydantic v2 schemas (`app/schemas/`).
+- Use dependency injection patterns: DB session, current user, tenant context (see `app/dependencies.py`).
+- Use async I/O everywhere — all DB queries, OpenAI calls, Twilio calls, S3 operations.
+- Use pagination for all list endpoints (`app/utils/pagination.py`).
+- Use consistent response models from `app/schemas/common.py`.
+- Use centralized exception handling (`app/core/exceptions.py`).
+- Enforce tenant isolation at every query: always filter by `tenant_id`.
+
+API conventions:
+- Follow RESTful naming; version APIs at `/api/v1/`.
+- Use proper HTTP status codes; return predictable response structure.
+- Do not leak internal stack traces or raw database errors to clients.
+- Use correlation IDs in all log entries.
+- Support WebSocket endpoints for real-time call streaming and Socket.IO events.
+
+Preferred backend structure (already established — extend, don't restructure):
+- `app/api/v1/`          — HTTP + WebSocket route handlers
+- `app/dependencies.py`  — Shared DI (db session, current user — `get_current_user` carries tenant_id)
+- `app/services/`        — Business logic (auth, leads, calls, analysis, prediction, guidance, notifications, webhooks)
+- `app/ai/`              — AI pipeline (openai_client, pipeline, prompts/)
+- `app/realtime/`        — Socket.IO server, Twilio Media Streams handler, Redis bridge
+- `app/tasks/`           — Celery tasks (transcription, analysis, prediction, notifications)
+- `app/models/`          — SQLAlchemy ORM models
+- `app/schemas/`         — Pydantic request/response schemas
+- `app/core/`            — Config, security, permissions, exceptions, middleware, database
+- `app/utils/`           — Pagination, audio helpers
+
+Coding expectations:
+- Add type hints to all function signatures.
+- Add docstrings for non-trivial service methods.
+- Keep routes thin and declarative — no business logic in route files.
+- Keep service methods focused and independently testable.
+- Reuse existing utilities before creating new ones.
+- All DB queries must go through SQLAlchemy async sessions from `app/core/database.py`.
+
+Do not:
+- Put SQL or ORM-heavy logic inside route files.
+- Put business logic inside Pydantic schemas.
+- Centralize all env vars in `app/config.py` — do not scatter env reads across files.
+- Mix AI pipeline logic with HTTP route logic.
+- Mix Celery task definitions with service business logic.
+- Hardcode Twilio credentials, OpenAI keys, AWS secrets, or JWT secrets — use `app/config.py`.
