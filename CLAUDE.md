@@ -4,7 +4,7 @@
 
 SalesIQ is a multi-tenant SaaS platform that listens to sales calls in real time, guides representatives, analyzes conversations, and predicts deal outcomes. B2B sales teams, call centers, and CRM platforms can integrate this system to improve sales performance through AI-driven insights.
 
-### Business Model
+### Business Model1
 
 - **Multi-tenant SaaS**: Each vendor (tenant) gets an isolated workspace
 - **Admin Portal**: Tenant admins manage agents, leads, call flows, and analytics
