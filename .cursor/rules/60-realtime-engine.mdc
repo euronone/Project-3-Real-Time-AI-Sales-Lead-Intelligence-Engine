@@ -1,0 +1,36 @@
+---
+description: Real-time engine — Socket.IO events, Twilio media stream handler
+globs: backend/app/realtime/**, frontend/src/lib/socket.ts, frontend/src/stores/call-store.ts
+---
+
+Real-time stack:
+- python-socketio (async) mounted on the FastAPI ASGI app.
+- Redis Pub/Sub as the transport between Celery workers/services and Socket.IO server.
+- Socket.IO Client (frontend) for receiving live updates.
+
+Real-time event types in SalesIQ:
+- `transcript:chunk` — new transcription segment during a live call.
+- `analysis:sentiment` — real-time sentiment score update.
+- `analysis:guidance` — AI-suggested talking point or objection-handling tip.
+- `analysis:redflag` — red flag alert (competitor mention, pricing objection, negative sentiment).
+- `call:started`, `call:ended` — call lifecycle events.
+- `notification:new` — general notification for agents/admins.
+
+Architecture:
+- Twilio Media Streams deliver raw audio via WebSocket to backend/app/realtime/call_stream_handler.py.
+- The stream handler processes audio, calls Whisper, calls GPT-4o, and publishes results to Redis.
+- Socket.IO server subscribes to Redis channels and forwards events to connected frontend clients.
+- Frontend stores (call-store, notification-store) update reactively on Socket.IO events.
+
+Rules:
+- Keep Socket.IO event handlers thin; delegate to services for business logic.
+- Use rooms/namespaces for tenant and call isolation (e.g. room per call_id).
+- Authenticate Socket.IO connections with JWT.
+- Handle reconnection gracefully on both client and server.
+- Event payloads should be typed (Pydantic on backend, TypeScript interfaces on frontend).
+
+Do not:
+- Put heavy computation in Socket.IO event handlers.
+- Send unscoped events (always scope by tenant/call).
+- Allow unauthenticated Socket.IO connections.
+- Mix REST API logic with real-time event handling in the same file.

@@ -1,0 +1,37 @@
+---
+description: Security, compliance, and PII rules for the entire repository
+alwaysApply: true
+---
+
+Security rules:
+- Never hardcode secrets, API keys, tokens, credentials, or private URLs (Twilio, OpenAI, PostgreSQL, Redis, etc.).
+- Never log passwords, tokens, raw secrets, or sensitive user content.
+- Validate and sanitize all user inputs (forms, API requests, webhooks).
+- Treat uploads, URLs, prompts, and external content as untrusted.
+- Enforce authentication and authorization on protected resources; use RBAC (Super Admin, Tenant Admin, Manager, Agent).
+- Use least-privilege access patterns; add rate limiting to sensitive or expensive endpoints.
+- Use secure defaults.
+
+Multi-tenant isolation:
+- Every database query on tenant-scoped data MUST filter by tenant_id.
+- Agents must only access leads, calls, and data within their own tenant.
+- API endpoints must enforce tenant scoping at the dependency/middleware level.
+- Never expose one tenant's data to another tenant.
+
+Call recording and PII:
+- Call recordings contain sensitive PII; store encrypted and access-controlled.
+- Implement data retention policies for recordings (configurable per tenant).
+- Mask or redact PII in logs and analytics where required.
+- Maintain audit logs for sensitive actions (call recording access, lead export, admin changes).
+
+AI-specific security:
+- Validate and sanitize inputs before sending to OpenAI APIs.
+- Handle unsafe model output before returning to the user.
+- Do not expose system prompts or internal AI configuration to end users.
+- Rate limit AI-heavy endpoints to prevent abuse and cost overruns.
+
+Do not:
+- Assume client-side validation is enough.
+- Return internal exception details to users.
+- Trust LLM output without validation in critical paths.
+- Store unencrypted secrets in environment files committed to git.

@@ -1,0 +1,35 @@
+---
+description: Testing and code quality rules
+alwaysApply: true
+---
+
+Testing philosophy:
+- Write production-quality code with tests for critical behavior.
+- Prefer deterministic unit tests for business logic (call analysis, deal prediction, lead routing).
+- Add integration tests for APIs, repositories, pipelines, and workflows crossing boundaries.
+- Mock external services: Twilio, OpenAI, Redis, PostgreSQL (or use test containers).
+
+Backend testing (Python — Pytest):
+- Use pytest + pytest-asyncio for async test support.
+- Use httpx.AsyncClient with ASGITransport for API endpoint tests.
+- Fixtures in backend/tests/conftest.py for database sessions, test users, tenants, auth headers.
+- Mock OpenAI responses for transcript/analysis tests (avoid live API calls in CI).
+- Mock Twilio webhooks and media streams for call pipeline tests.
+- Test Celery tasks independently with mocked dependencies.
+
+Frontend testing (TypeScript — Vitest):
+- Use Vitest + React Testing Library for component and hook tests.
+- Use @playwright/test for end-to-end tests.
+- Test critical flows: login, call initiation, real-time panel updates, deal prediction display.
+- Mock API responses and Socket.IO events in tests.
+
+Code quality:
+- Use linting (ruff for Python, ESLint for TypeScript) and formatting.
+- Use types everywhere; Python type hints and TypeScript strict mode.
+- Keep functions focused; refactor repeated logic into shared utilities when justified.
+
+Do not:
+- Add major logic without at least basic tests.
+- Create brittle tests tied to unstable implementation details.
+- Depend on live Twilio, OpenAI, or external APIs in normal test runs.
+- Skip testing auth and permission-sensitive flows.

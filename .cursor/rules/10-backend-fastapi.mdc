@@ -1,0 +1,54 @@
+---
+description: FastAPI backend rules
+globs: backend/**, app/**.py
+---
+
+Backend stack:
+- Python 3.12
+- FastAPI (async)
+- SQLAlchemy 2.0 + AsyncPG for PostgreSQL persistence
+- Alembic for database migrations
+- Pydantic v2 for validation and schemas
+- Redis for cache, pub/sub, and Celery broker
+- Celery for async AI processing tasks (transcription, analysis, deal prediction)
+- python-socketio for real-time WebSocket events
+- OpenAI API (GPT-4o for analysis, Whisper for STT)
+- Twilio Voice SDK for telephony and media streams
+- JWT-based auth with refresh tokens
+
+Backend rules:
+- Use clean architecture.
+- Routes/controllers should only handle HTTP/WebSocket concerns.
+- Business logic must live in services (call analysis, transcription, deal prediction, lead management).
+- Database access must live in repositories or use SQLAlchemy session patterns.
+- Validation must be done using Pydantic schemas/models.
+- Use dependency injection patterns (FastAPI Depends).
+- Use async I/O for external calls (OpenAI, Twilio, Redis).
+- Use pagination for list endpoints.
+- Use consistent response models.
+- Use centralized exception handling.
+
+API conventions:
+- Follow RESTful naming; version APIs (e.g. /api/v1/).
+- Use proper status codes; return predictable response structure.
+- Do not leak internal stack traces or raw database errors.
+- Support WebSocket via Socket.IO for real-time call features.
+
+Existing backend structure (do not reorganize):
+- backend/app/api/routes/          (HTTP routes)
+- backend/app/api/dependencies/
+- backend/app/services/            (business logic: calls, analysis, prediction, leads)
+- backend/app/models/              (SQLAlchemy ORM models)
+- backend/app/schemas/             (Pydantic request/response schemas)
+- backend/app/core/                (config, security, logging)
+- backend/app/realtime/            (Socket.IO + Twilio media stream handlers)
+- backend/app/tasks/               (Celery async tasks)
+- backend/app/utils/
+- backend/tests/
+
+Do not:
+- Put SQL or ORM-heavy logic inside route files.
+- Put business logic inside Pydantic schemas.
+- Put environment variables directly across many files; centralize in app/config.py.
+- Mix unrelated domains in the same service file.
+- Hardcode Twilio credentials, OpenAI keys, or database URLs; use config/env.

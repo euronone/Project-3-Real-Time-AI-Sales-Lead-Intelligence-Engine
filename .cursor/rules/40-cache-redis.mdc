@@ -1,0 +1,35 @@
+---
+description: Redis caching, Celery broker, and pub/sub rules
+globs: backend/**, workers/**, tasks/**
+---
+
+Redis usage in SalesIQ:
+- **Celery broker**: Redis serves as the message broker for Celery async task queue.
+- **Pub/Sub**: Redis Pub/Sub routes real-time events from Celery workers to Socket.IO server.
+- **Caching**: Cache expensive reads (lead metadata, agent context, analytics aggregations).
+- **Session/ephemeral state**: Short-lived call session state during active calls.
+
+Rules:
+- Wrap Redis access in dedicated utilities/services; do not scatter raw Redis calls.
+- Use stable key naming conventions (e.g. `tenant:{id}:call:{id}:transcript`).
+- Document key patterns if introducing new families of keys.
+- Choose TTLs intentionally; never cache without expiry unless justified.
+- Celery tasks must be idempotent where possible.
+- Use retries carefully and avoid infinite retry loops in Celery tasks.
+
+Caching expectations:
+- Cache expensive reads and repeated metadata lookups where appropriate.
+- Do not cache highly sensitive data (call recordings, PII) unless encrypted and justified.
+- Do not rely on cache as the only source of truth for persistent state.
+
+Celery task conventions:
+- Tasks live in backend/app/tasks/.
+- Each task file should be focused on one domain (transcription_tasks, analysis_tasks, prediction_tasks).
+- Tasks should log their start, completion, and any errors.
+- Long-running tasks should report progress where applicable.
+
+Do not:
+- Scatter raw Redis calls across the codebase.
+- Store large unbounded payloads without TTL or cleanup strategy.
+- Mix queue semantics and cache semantics without clarity.
+- Run heavy computation in the main FastAPI process; offload to Celery tasks.

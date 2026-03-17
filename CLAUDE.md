@@ -947,3 +947,59 @@ docker-compose logs -f backend        # Follow backend logs
 - Component files: PascalCase, one component per file
 - Hooks: `use-*.ts` in hooks/ directory
 - Zod schemas mirror backend Pydantic schemas for client-side validation
+
+---
+
+## Claude Code Guardrails
+
+These guardrails apply whenever Claude Code (or any AI assistant) generates code for this repository.
+
+### Architecture Principles
+
+1. **Think architect first, implement engineer second.** Understand where code belongs before writing it.
+2. **Clean architecture:** Routes → Services → Repositories → Models. Keep each layer focused.
+3. **Thin controllers:** Route handlers only parse requests and return responses. All logic lives in services.
+4. **Extend, don't invent:** Use existing patterns, utilities, and abstractions before creating new ones.
+5. **Multi-tenant always:** Every database query on tenant-scoped data MUST filter by `tenant_id`.
+
+### File Placement Rules
+
+| What | Where |
+|---|---|
+| HTTP routes | `backend/app/api/routes/` |
+| Business logic | `backend/app/services/` |
+| ORM models | `backend/app/models/` |
+| Pydantic schemas | `backend/app/schemas/` |
+| Config/security | `backend/app/core/` |
+| Celery tasks | `backend/app/tasks/` |
+| Socket.IO / Twilio handlers | `backend/app/realtime/` |
+| Audio/text utilities | `backend/app/utils/` |
+| React UI components | `frontend/src/components/ui/` |
+| API client, Socket, Twilio | `frontend/src/lib/` |
+| Zustand stores | `frontend/src/stores/` |
+| TypeScript types | `frontend/src/types/` |
+| Alembic migrations | `backend/alembic/versions/` |
+
+### Do
+
+- Use type hints (Python) and strict TypeScript everywhere.
+- Add structured logging with correlation IDs on critical paths.
+- Use Pydantic for validation, Zod for client-side validation.
+- Use async I/O for all external calls (OpenAI, Twilio, Redis, PostgreSQL).
+- Write tests for non-trivial service methods.
+- Mock external services (Twilio, OpenAI) in tests.
+- Use Alembic for all schema changes.
+- Scope all queries by `tenant_id`.
+
+### Do Not
+
+- Hardcode secrets, API keys, tokens, or database URLs anywhere.
+- Put SQL/ORM logic in route handlers.
+- Put business logic in Pydantic schemas.
+- Send raw audio to LLM prompts (use STT first, then text).
+- Log passwords, tokens, PII, or raw secrets.
+- Expose internal error details or stack traces to end users.
+- Skip tenant isolation in database queries.
+- Change project architecture without explicit approval.
+- Depend on live external APIs (Twilio, OpenAI) in test runs.
+- Introduce new abstractions without justification.

@@ -1,0 +1,56 @@
+---
+description: Next.js frontend rules (Admin Portal + Agent Portal)
+globs: frontend/**, src/**, app/**, components/**, hooks/**, lib/**
+---
+
+Frontend stack:
+- Next.js 14 (App Router)
+- TypeScript (strict mode)
+- Tailwind CSS 3.4
+- TanStack React Query for server state
+- Zustand for client state (auth, call, notifications)
+- Axios for API calls (with JWT interceptor and auto-refresh)
+- Socket.IO Client for real-time events
+- @twilio/voice-sdk for browser-based calling
+- Recharts for analytics charts
+- ReactFlow for visual lead flow designer
+- Lucide React for icons
+- React Hook Form + Zod for form validation
+
+Frontend rules:
+- Prefer TypeScript for all frontend logic.
+- Keep components small, reusable, and focused.
+- Keep presentation separate from business/data-fetching logic.
+- Use hooks for data fetching (TanStack Query) and Zustand stores for global state.
+- Handle loading, error, and empty states explicitly.
+- Preserve design consistency and naming consistency.
+- Support real-time updates (Socket.IO) for live transcript, sentiment, AI guidance, and red flag alerts.
+- **Two portals in one app:** Admin (`/(dashboard)/admin/*`) and Agent (`/(dashboard)/agent/*`); use role-based routing and layout; shared design system and API client.
+
+Existing frontend structure (do not reorganize):
+- frontend/src/app/(auth)/          (login, register, forgot-password)
+- frontend/src/app/(dashboard)/     (admin and agent portal routes)
+- frontend/src/components/ui/       (Button, Input, Modal, Table, Card, Badge, Toast, etc.)
+- frontend/src/hooks/
+- frontend/src/lib/                 (api.ts, socket.ts, twilio.ts, utils.ts, constants.ts)
+- frontend/src/stores/              (auth-store, call-store, notification-store)
+- frontend/src/types/               (models, api, call, lead, prediction)
+- frontend/src/styles/
+
+UI/UX rules:
+- Use accessible markup and semantic HTML.
+- Prefer reusable design system components from components/ui/.
+- Avoid oversized page components.
+- Avoid embedding complex API logic directly inside visual components.
+
+State/data rules:
+- Keep API client centralized in lib/api.ts.
+- Use TanStack Query for server data; Zustand for auth/call/notification state.
+- Handle auth state carefully (JWT refresh, redirect on 401).
+- Validate critical inputs on both client and server.
+
+Do not:
+- Mix many responsibilities into one component.
+- Hardcode API URLs in components; use environment variables via lib/constants.ts.
+- Duplicate UI patterns that should be shared from components/ui/.
+- Import server-only code in client components.
