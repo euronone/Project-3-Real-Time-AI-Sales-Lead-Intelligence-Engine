@@ -1,0 +1,34 @@
+---
+description: AI analysis — GPT-4o transcript analysis, sentiment, deal prediction
+globs: backend/app/services/**, backend/app/tasks/**, backend/app/utils/**
+---
+
+AI stack:
+- OpenAI GPT-4o for real-time call analysis, sentiment detection, and deal prediction.
+- OpenAI Whisper for speech-to-text transcription.
+- Structured output from GPT-4o for machine-readable analysis results.
+
+AI analysis architecture:
+- **Real-time (during call):** Audio chunk → Whisper STT → transcript → GPT-4o streaming analysis → sentiment, suggested talking points, objection handling tips, red flag alerts.
+- **Post-call (Celery task):** Full recording → batch Whisper transcription → GPT-4o deep analysis → call summary, scorecard, key topics, action items.
+- **Deal prediction:** Lead history + call analyses + CRM data → GPT-4o → win probability %, reasoning, recommended next steps.
+
+AI rules:
+- Separate real-time analysis logic from post-call batch analysis.
+- Prompts must be templated and stored separately from orchestration logic (use backend/app/services/ or a prompts directory).
+- Use structured output schemas (Pydantic models) for GPT-4o responses in production.
+- Add output validation and fallback behavior; handle no-context and low-confidence gracefully.
+- Ground analysis in actual transcript content; avoid hallucinating unavailable facts.
+- Support configurable analysis parameters (model, temperature, max_tokens).
+
+Scoring and coaching:
+- Per-call scorecard metrics: talk ratio, filler words, engagement level, objection handling score.
+- Store scores in call_analyses table linked to the call record.
+- Aggregate scores for agent performance tracking.
+
+Do not:
+- Send raw audio directly to GPT-4o; always use STT first.
+- Mix prompt text deeply into service/business code.
+- Make analysis behavior impossible to inspect or tune.
+- Hardcode OpenAI API keys; use config/env.
+- Skip error handling for OpenAI API failures (rate limits, timeouts).

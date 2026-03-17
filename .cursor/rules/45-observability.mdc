@@ -1,0 +1,28 @@
+---
+description: Observability, monitoring, and analytics rules
+globs: backend/app/core/**, backend/app/utils/**, frontend/src/app/(dashboard)/admin/**
+---
+
+Observability scope:
+- System logs (structured, with correlation IDs for requests and calls).
+- AI response monitoring (latency, token usage, model, errors).
+- Call pipeline monitoring (audio chunk processing time, STT latency, analysis latency).
+- Error tracking (centralized error reporting).
+- Usage analytics (calls per agent, deals predicted, conversion rates).
+
+Dashboard and reporting:
+- Admin dashboard: Tenant-wide KPIs — total calls, conversion rate, active agents, pipeline value, AI score trends.
+- Agent dashboard: Personal KPIs — today's call queue, win rate, coaching scores.
+- Analytics: Conversion funnels, agent leaderboards, call duration trends, AI prediction accuracy.
+- Real-time call monitoring: live transcription status, sentiment indicators, active call count.
+
+Rules:
+- Use structured logging (JSON or key-value) with consistent fields: request_id, call_id, tenant_id, user_id, level, message, duration_ms.
+- Do not log PII, passwords, or raw tokens; mask or redact in log pipelines.
+- Instrument critical paths: Twilio webhooks, Whisper STT calls, GPT-4o analysis, Celery task execution, deal prediction.
+- Alerts for critical failures (e.g. Twilio stream disconnects, OpenAI errors above threshold); avoid alert fatigue.
+
+Do not:
+- Rely on ad-hoc print statements for production diagnostics.
+- Expose internal error details or stack traces to end-users.
+- Add observability as an afterthought; include logging and metrics in new features by default.

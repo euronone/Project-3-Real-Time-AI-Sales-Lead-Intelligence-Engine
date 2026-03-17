@@ -1,0 +1,34 @@
+---
+description: Voice call pipeline — Twilio, Whisper STT, real-time transcription
+globs: backend/app/realtime/**, backend/app/services/call*/**, backend/app/tasks/**
+---
+
+Voice/call stack:
+- Twilio Voice SDK for outbound/inbound calls and media streams.
+- Twilio Media Streams (WebSocket) for raw audio delivery to backend.
+- OpenAI Whisper API for speech-to-text (STT) transcription.
+- OpenAI GPT-4o for real-time analysis (sentiment, guidance, objection handling).
+- S3-compatible storage for call recordings.
+- Celery workers for post-call deep analysis and deal prediction.
+
+Call pipeline architecture:
+- Agent clicks "Call" → Twilio Client SDK initiates call from browser.
+- Twilio streams raw audio → Backend Socket.IO/WebSocket handler receives chunks.
+- Backend sends audio → Whisper API → transcript chunk returned.
+- Backend sends transcript context → GPT-4o → streaming analysis (sentiment, guidance).
+- Backend publishes results via Redis Pub/Sub → Socket.IO → Frontend live panel.
+- On call end: Twilio webhook → enqueue Celery job → full transcription + deep analysis + deal prediction.
+
+Rules:
+- Keep voice pipeline separate from REST API request paths; share lead/call context.
+- Transcriptions and summaries must be stored and linked to the call record for history and analytics.
+- Do not stream raw audio directly to LLM prompts; use STT first, then text-based analysis.
+- Prefer async Celery tasks for recording uploads, full transcription, and summary generation.
+- Secure storage and access control for recordings; comply with PII retention policies.
+- Audio processing utilities should live in backend/app/utils/audio.py.
+
+Do not:
+- Hardcode Twilio or OpenAI API keys; use config/env.
+- Store unencrypted call recordings in publicly accessible locations.
+- Mix voice-specific business logic with generic lead/CRUD services.
+- Block the main API event loop with long-running audio processing.
