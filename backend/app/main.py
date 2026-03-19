@@ -55,9 +55,9 @@ def create_app() -> FastAPI:
     application.include_router(api_router, prefix="/api")
 
     # Mount Socket.IO
-    sio_app = socketio.ASGIApp(sio, other_app=application)
+    sio_app = socketio.ASGIApp(sio, other_asgi_app=application)
 
-    return application
+    return sio_app
 
 
 app = create_app()

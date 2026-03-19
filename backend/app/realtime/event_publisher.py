@@ -77,7 +77,7 @@ class EventSubscriber:
 
             # Extract call_id from channel (e.g., "salesiq:call:abc123")
             parts = channel.replace(CHANNEL_PREFIX, "").split(":")
-            entity_type = parts[0] if parts else ""
+            parts[0] if parts else ""
             entity_id = parts[1] if len(parts) > 1 else ""
 
             event_handlers = {

@@ -6,12 +6,6 @@ import json
 import structlog
 from fastapi import WebSocket
 
-from app.realtime.socket_manager import (
-    emit_ai_guidance,
-    emit_red_flag_alert,
-    emit_sentiment_update,
-    emit_transcript_chunk,
-)
 from app.utils.audio import convert_mulaw_to_wav
 
 logger = structlog.get_logger(__name__)
@@ -79,7 +73,7 @@ class CallStreamHandler:
             return
 
         # Convert mulaw to wav
-        wav_data = convert_mulaw_to_wav(bytes(self.audio_buffer))
+        convert_mulaw_to_wav(bytes(self.audio_buffer))
         self.audio_buffer.clear()
         self.chunk_index += 1
 
