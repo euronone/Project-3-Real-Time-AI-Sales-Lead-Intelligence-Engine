@@ -57,18 +57,19 @@ api.interceptors.response.use(
 
       try {
         const { useAuthStore } = require("@/stores/auth-store");
-        const refreshToken = useAuthStore.getState().refreshToken;
+        const currentRefreshToken = useAuthStore.getState().refreshToken;
 
         const { data } = await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/refresh`,
-          { refresh_token: refreshToken }
+          { refresh_token: currentRefreshToken }
         );
 
         const newAccessToken = data.access_token as string;
+        const newRefreshToken = (data.refresh_token as string) ?? currentRefreshToken;
         useAuthStore.getState().setAuth(
           useAuthStore.getState().user,
           newAccessToken,
-          refreshToken
+          newRefreshToken
         );
 
         processQueue(null, newAccessToken);
