@@ -8,11 +8,9 @@ interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  _hasHydrated: boolean;
   setAuth: (user: User | null, accessToken: string, refreshToken: string) => void;
   clearAuth: () => void;
   setLoading: (loading: boolean) => void;
-  setHasHydrated: (hydrated: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -23,7 +21,6 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
-      _hasHydrated: false,
 
       setAuth: (user, accessToken, refreshToken) =>
         set({
@@ -44,7 +41,6 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       setLoading: (isLoading) => set({ isLoading }),
-      setHasHydrated: (_hasHydrated) => set({ _hasHydrated }),
     }),
     {
       name: "salesiq-auth",
@@ -54,11 +50,6 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
-      onRehydrateStorage: () => {
-        return () => {
-          useAuthStore.getState().setHasHydrated(true);
-        };
-      },
     }
   )
 );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import type { UserRole } from '@/types/models';
@@ -12,13 +12,16 @@ interface UseAuthOptions {
 
 export function useAuth(options?: UseAuthOptions) {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading, _hasHydrated, clearAuth } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
+  const { user, isAuthenticated, isLoading, clearAuth } = useAuthStore();
 
   const requiredRoles = options?.requiredRoles;
   const redirectIfAuthenticated = options?.redirectIfAuthenticated;
 
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
-    if (!_hasHydrated || isLoading) return;
+    if (!mounted || isLoading) return;
 
     if (redirectIfAuthenticated && isAuthenticated) {
       router.replace(user?.role === 'agent' ? '/agent' : '/admin');
@@ -33,7 +36,7 @@ export function useAuth(options?: UseAuthOptions) {
     if (requiredRoles && user && !requiredRoles.includes(user.role)) {
       router.replace(user.role === 'agent' ? '/agent' : '/admin');
     }
-  }, [isAuthenticated, isLoading, _hasHydrated, user, requiredRoles, redirectIfAuthenticated, router]);
+  }, [isAuthenticated, isLoading, mounted, user, requiredRoles, redirectIfAuthenticated, router]);
 
   const logout = () => {
     clearAuth();

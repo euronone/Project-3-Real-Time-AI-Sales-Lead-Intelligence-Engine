@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { Sidebar } from '@/components/layout/sidebar';
@@ -14,17 +14,20 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading, _hasHydrated } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
+  const { isAuthenticated, isLoading } = useAuthStore();
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (!_hasHydrated || isLoading) return;
+    if (!mounted || isLoading) return;
 
     if (!isAuthenticated) {
       router.replace('/login');
     }
-  }, [isAuthenticated, isLoading, _hasHydrated, router]);
+  }, [isAuthenticated, isLoading, mounted, router]);
 
-  if (!_hasHydrated || isLoading || !isAuthenticated) {
+  if (!mounted || isLoading || !isAuthenticated) {
     return <PageLoader message="Loading..." />;
   }
 

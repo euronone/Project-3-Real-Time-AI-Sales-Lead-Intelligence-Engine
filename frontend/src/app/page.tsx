@@ -1,16 +1,19 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { PageLoader } from '@/components/ui/loading';
 
 export default function RootPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, _hasHydrated, user } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
+  const { isAuthenticated, isLoading, user } = useAuthStore();
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (!_hasHydrated || isLoading) return;
+    if (!mounted || isLoading) return;
 
     if (!isAuthenticated) {
       router.replace('/login');
@@ -22,7 +25,7 @@ export default function RootPage() {
     } else {
       router.replace('/admin');
     }
-  }, [isAuthenticated, isLoading, _hasHydrated, user, router]);
+  }, [isAuthenticated, isLoading, mounted, user, router]);
 
   return <PageLoader message="Redirecting..." />;
 }
