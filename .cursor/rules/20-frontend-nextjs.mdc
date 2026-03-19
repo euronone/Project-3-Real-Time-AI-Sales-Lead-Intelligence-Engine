@@ -1,70 +1,56 @@
 ---
-description: Next.js frontend rules for SalesIQ (Admin Portal + Agent Portal)
-globs: frontend/**, src/**, app/**, components/**, hooks/**, lib/**, stores/**
+description: Next.js frontend rules (Admin Portal + Agent Portal)
+globs: frontend/**, src/**, app/**, components/**, hooks/**, lib/**
 ---
 
 Frontend stack:
-- Next.js 14+ (App Router)
-- TypeScript (strict mode — no `any` types)
-- Tailwind CSS 3+ (utility-first; no custom CSS unless absolutely necessary)
-- Zustand (global UI state: auth, call state, notifications)
-- TanStack Query / React Query (server state, caching, data fetching)
-- React Hook Form + Zod (forms and client-side validation)
-- Socket.IO client (real-time transcript, AI guidance, notifications)
-- Twilio Client JS SDK (WebRTC outbound/inbound calls)
-- Recharts (analytics charts and sentiment timeline)
-- React Flow (lead flow designer drag-and-drop canvas)
-- Axios with interceptors (HTTP client with JWT refresh logic)
-
-Two portals — one app:
-- **Admin Portal** (`/admin/*`): Tenant admins manage agents, leads, campaigns, call flows, routing, analytics, settings, audit logs.
-- **Agent Portal** (`/agent/*`): Sales reps see call queue, live call UI, AI guidance, deal predictions, coaching.
-- Both portals share the same design system, component library, API client, and layout shell.
-- Role-based routing and layout: middleware redirects based on JWT role claim.
+- Next.js 14 (App Router)
+- TypeScript (strict mode)
+- Tailwind CSS 3.4
+- TanStack React Query for server state
+- Zustand for client state (auth, call, notifications)
+- Axios for API calls (with JWT interceptor and auto-refresh)
+- Socket.IO Client for real-time events
+- @twilio/voice-sdk for browser-based calling
+- Recharts for analytics charts
+- ReactFlow for visual lead flow designer
+- Lucide React for icons
+- React Hook Form + Zod for form validation
 
 Frontend rules:
-- Use TypeScript strict mode for all frontend code.
-- Keep components small, reusable, and focused on one responsibility.
-- Keep presentation separate from data-fetching logic — use TanStack Query hooks in page-level components, not deep inside UI primitives.
-- Use Server Components by default; Client Components only when interactivity or browser APIs are needed (mark with `"use client"`).
-- Handle loading, error, and empty states explicitly in every page and data-consuming component.
-- Preserve design consistency — extend the existing UI component library in `components/ui/` before creating new patterns.
-- Support real-time updates via Socket.IO for live transcription, AI guidance, sentiment, red flag alerts, and notifications.
-- Validate critical inputs on both client (Zod) and server (Pydantic).
+- Prefer TypeScript for all frontend logic.
+- Keep components small, reusable, and focused.
+- Keep presentation separate from business/data-fetching logic.
+- Use hooks for data fetching (TanStack Query) and Zustand stores for global state.
+- Handle loading, error, and empty states explicitly.
+- Preserve design consistency and naming consistency.
+- Support real-time updates (Socket.IO) for live transcript, sentiment, AI guidance, and red flag alerts.
+- **Two portals in one app:** Admin (`/(dashboard)/admin/*`) and Agent (`/(dashboard)/agent/*`); use role-based routing and layout; shared design system and API client.
 
-Preferred frontend structure (established — extend, don't restructure):
-- `src/app/(auth)/`          — Login, register, forgot-password pages
-- `src/app/(dashboard)/admin/` — Admin portal pages
-- `src/app/(dashboard)/agent/` — Agent portal pages
-- `src/components/ui/`       — Reusable design system primitives (Button, Input, Modal, Table, Card, Badge, Toast)
-- `src/components/layout/`   — Sidebar, Header, Breadcrumb, NotificationBell
-- `src/components/calls/`    — Call-specific components (controls, transcript, guidance, scorecard)
-- `src/components/leads/`    — Lead-specific components (table, card, import modal, flow canvas)
-- `src/components/agents/`   — Agent-specific components (table, scorecard)
-- `src/components/analytics/`— Chart components (kpi-card, conversion-funnel, leaderboard)
-- `src/components/predictions/` — Deal pipeline, win-probability gauge, red-flag alert
-- `src/hooks/`               — Custom hooks (use-auth, use-socket, use-call, use-live-transcript, use-notifications)
-- `src/lib/`                 — API client (api.ts), Socket.IO setup (socket.ts), Twilio init (twilio.ts), utils, constants
-- `src/stores/`              — Zustand stores (auth-store, call-store, notification-store)
-- `src/types/`               — TypeScript domain types (models, call, lead, prediction, api)
+Existing frontend structure (do not reorganize):
+- frontend/src/app/(auth)/          (login, register, forgot-password)
+- frontend/src/app/(dashboard)/     (admin and agent portal routes)
+- frontend/src/components/ui/       (Button, Input, Modal, Table, Card, Badge, Toast, etc.)
+- frontend/src/hooks/
+- frontend/src/lib/                 (api.ts, socket.ts, twilio.ts, utils.ts, constants.ts)
+- frontend/src/stores/              (auth-store, call-store, notification-store)
+- frontend/src/types/               (models, api, call, lead, prediction)
+- frontend/src/styles/
 
-State and data rules:
-- Keep API client centralized in `lib/api.ts` — all Axios calls go through this instance.
-- Normalize repeated API access patterns into TanStack Query hooks.
-- Handle auth state carefully: JWT in memory, refresh token in httpOnly cookie.
-- Never hardcode API base URLs in components — use `NEXT_PUBLIC_API_URL` env variable.
-- Zustand stores for global UI state only; server state belongs in TanStack Query.
+UI/UX rules:
+- Use accessible markup and semantic HTML.
+- Prefer reusable design system components from components/ui/.
+- Avoid oversized page components.
+- Avoid embedding complex API logic directly inside visual components.
 
-Real-time rules:
-- Socket.IO connection managed in `lib/socket.ts` and consumed via `hooks/use-socket.ts`.
-- Join call rooms with `join_call_room` on call start; leave on end.
-- Handle `transcript_chunk`, `ai_guidance`, `sentiment_update`, `red_flag_alert`, `call_status_changed`, `notification`, `deal_prediction_updated` events.
-- Avoid re-renders on every transcript chunk — use refs or virtualized lists.
+State/data rules:
+- Keep API client centralized in lib/api.ts.
+- Use TanStack Query for server data; Zustand for auth/call/notification state.
+- Handle auth state carefully (JWT refresh, redirect on 401).
+- Validate critical inputs on both client and server.
 
 Do not:
 - Mix many responsibilities into one component.
-- Hardcode API URLs or Socket.IO URLs in components.
-- Duplicate UI patterns that should be shared via `components/ui/`.
-- Put admin-only flows in the agent portal routes.
-- Use `any` TypeScript type anywhere.
-- Use CSS modules or styled-components — Tailwind utility classes only.
+- Hardcode API URLs in components; use environment variables via lib/constants.ts.
+- Duplicate UI patterns that should be shared from components/ui/.
+- Import server-only code in client components.

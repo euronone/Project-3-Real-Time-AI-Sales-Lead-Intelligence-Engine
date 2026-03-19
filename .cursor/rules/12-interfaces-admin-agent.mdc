@@ -1,0 +1,33 @@
+---
+description: Two interfaces — Admin Portal (web) and Agent Portal (web)
+alwaysApply: true
+---
+
+This project has exactly two user-facing interfaces. All features, APIs, and docs must account for them.
+
+## 1. Admin Portal
+
+- **Purpose:** Tenant admins configure and monitor the sales system.
+- **Stack:** Next.js + TypeScript (same web app, role-based routes).
+- **Scope:** Tenant-wide KPIs dashboard, agent management, lead management, lead flow designer, campaign management, call routing rules, analytics & reports, settings, audit log.
+- **Access:** RBAC; Tenant Admin or Super Admin role only.
+- **Where:** Served from the same Next.js app under routes like `/admin/*` or `/(dashboard)/admin/*`.
+
+## 2. Agent Portal
+
+- **Purpose:** Sales reps use the portal during and between calls.
+- **Stack:** Next.js + TypeScript (same web app, role-based routes).
+- **Scope:** Call queue, click-to-call softphone (Twilio), real-time call guidance panel, post-call summary, AI coaching scorecard, deal prediction, red flag alerts, lead detail view, notes & follow-ups.
+- **Access:** Agent or Manager role; scoped to assigned leads and own call history.
+- **Where:** Served from the same Next.js app under routes like `/agent/*` or `/(dashboard)/agent/*`.
+
+## Rules
+
+- **Backend:** One API surface serves both portals; use RBAC and scopes to distinguish admin vs agent access.
+- **Web (Next.js):** Single app that hosts both Admin and Agent Portal; separate routes/layouts and role checks; shared design system (component library) and API client.
+- **No mobile app** in this project; both portals are web-only.
+
+Do not:
+- Build agent-only flows accessible to non-authenticated users.
+- Assume only one "frontend"; there are two logical portals in one app.
+- Expose admin-only endpoints (agent management, tenant settings) to agent-role users.

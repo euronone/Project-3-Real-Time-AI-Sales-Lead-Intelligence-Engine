@@ -950,62 +950,56 @@ docker-compose logs -f backend        # Follow backend logs
 
 ---
 
-## Guardrails for Claude Code
+## Claude Code Guardrails
 
-These rules enforce the same constraints as `.cursor/rules/`. Follow them on every change.
+These guardrails apply whenever Claude Code (or any AI assistant) generates code for this repository.
 
-### Architecture — where code belongs
-- Routes are thin: only request parsing, response shaping, and `Depends(...)` calls. No business logic.
-- Business logic → `app/services/`. AI logic → `app/ai/`. Real-time → `app/realtime/`. Async jobs → `app/tasks/`.
-- Prompt templates → `app/ai/prompts/` only. Never inline prompt text inside service or task files.
-- New API endpoints go in `app/api/v1/` and must be registered in `app/api/router.py`.
-- Frontend: extend `components/ui/` primitives before creating new patterns.
+### Architecture Principles
 
-### Multi-tenancy — never break these
-- Every SQLAlchemy query on tenant-scoped data **must** filter by `tenant_id`.
-- `tenant_id` is extracted from the authenticated user via `Depends(get_current_user)` in `app/dependencies.py` — never from the request body.
-- If a resource's `tenant_id` does not match the caller's `tenant_id`, return 403. No exceptions.
-- Redis pub/sub channels and cache keys must be namespaced by `tenant_id`.
+1. **Think architect first, implement engineer second.** Understand where code belongs before writing it.
+2. **Clean architecture:** Routes → Services → Repositories → Models. Keep each layer focused.
+3. **Thin controllers:** Route handlers only parse requests and return responses. All logic lives in services.
+4. **Extend, don't invent:** Use existing patterns, utilities, and abstractions before creating new ones.
+5. **Multi-tenant always:** Every database query on tenant-scoped data MUST filter by `tenant_id`.
 
-### AI pipeline — task dispatch rules
-- Never call OpenAI (Whisper or GPT-4o) synchronously inside an HTTP request handler.
-- Post-call transcription, analysis, and prediction must be dispatched to Celery tasks immediately after the Twilio recording callback.
-- Celery task order: `transcription_tasks` → `analysis_tasks` → `prediction_tasks` → `notification_tasks`.
-- All Celery tasks must be idempotent — running twice on the same `call_id` must not create duplicates.
-- Always validate GPT-4o structured JSON output against the Pydantic schema before writing to the database. On validation failure: log raw response, store null/error, do not crash the pipeline.
+### File Placement Rules
 
-### Real-time — Socket.IO event rules
-- Never emit Socket.IO events from HTTP route handlers. The only valid path is: service → `event_publisher.py` → Redis pub/sub → `socket_manager.py` → Socket.IO room.
-- Socket.IO rooms are scoped per call (`call:{call_sid}`) and validated per tenant before allowing join.
-- Event names are a contract with the frontend — do not rename without coordinating both sides:
-  `transcript_chunk`, `ai_guidance`, `sentiment_update`, `red_flag_alert`, `call_status_changed`, `notification`, `deal_prediction_updated`.
+| What | Where |
+|---|---|
+| HTTP routes | `backend/app/api/routes/` |
+| Business logic | `backend/app/services/` |
+| ORM models | `backend/app/models/` |
+| Pydantic schemas | `backend/app/schemas/` |
+| Config/security | `backend/app/core/` |
+| Celery tasks | `backend/app/tasks/` |
+| Socket.IO / Twilio handlers | `backend/app/realtime/` |
+| Audio/text utilities | `backend/app/utils/` |
+| React UI components | `frontend/src/components/ui/` |
+| API client, Socket, Twilio | `frontend/src/lib/` |
+| Zustand stores | `frontend/src/stores/` |
+| TypeScript types | `frontend/src/types/` |
+| Alembic migrations | `backend/alembic/versions/` |
 
-### Twilio — voice and webhooks
-- All Twilio SDK calls go through `app/services/twilio_service.py` only.
-- All S3 operations go through `app/services/storage_service.py` only.
-- Twilio webhook handlers must validate the `X-Twilio-Signature` header before processing any payload.
-- Never serve raw Twilio recording URLs to clients — always generate presigned S3 URLs via `StorageService`.
-- Real-time guidance latency target: sub-second aspiration (feature spec); engineering floor is < 2 seconds end-to-end from audio chunk arrival to Socket.IO emission. If > 2 seconds, investigate and optimise before shipping.
+### Do
 
-### Database — SQLAlchemy and migrations
-- Every schema change needs an Alembic migration in `alembic/versions/`. Never modify production schema manually.
-- Never modify existing migration files — always create a new revision.
-- Use `selectinload` / `joinedload` for relationships to avoid N+1 queries.
-- Do not use the synchronous SQLAlchemy engine anywhere — the entire backend is async.
+- Use type hints (Python) and strict TypeScript everywhere.
+- Add structured logging with correlation IDs on critical paths.
+- Use Pydantic for validation, Zod for client-side validation.
+- Use async I/O for all external calls (OpenAI, Twilio, Redis, PostgreSQL).
+- Write tests for non-trivial service methods.
+- Mock external services (Twilio, OpenAI) in tests.
+- Use Alembic for all schema changes.
+- Scope all queries by `tenant_id`.
 
-### Security — hard rules
-- Never hardcode secrets, API keys, or credentials anywhere in code. All secrets via `app/config.py` from env vars.
-- Never commit `.env` or `.env.local` files.
-- Never log transcript text, customer names, phone numbers, JWT tokens, or raw API keys.
-- Never return internal stack traces or exception detail to API clients — log them, return a sanitized message.
-- Do not trust LLM output in critical flows without Pydantic validation first.
+### Do Not
 
-### Testing
-- Never call live OpenAI, Twilio, or AWS S3 APIs in tests — mock all external services.
-- Every new service method needs at least a basic happy-path test.
-- Multi-tenancy isolation must be tested on every new endpoint — verify tenant A cannot access tenant B's data.
-
-### Response style
-- Prefer precise, minimal, production-ready changes. Do not rewrite unrelated code.
-- When adding a new feature, also note which `.env.example` variables, Alembic migrations, and frontend types need updating.
-- Do not produce demo/toy code when production code is requested.
+- Hardcode secrets, API keys, tokens, or database URLs anywhere.
+- Put SQL/ORM logic in route handlers.
+- Put business logic in Pydantic schemas.
+- Send raw audio to LLM prompts (use STT first, then text).
+- Log passwords, tokens, PII, or raw secrets.
+- Expose internal error details or stack traces to end users.
+- Skip tenant isolation in database queries.
+- Change project architecture without explicit approval.
+- Depend on live external APIs (Twilio, OpenAI) in test runs.
+- Introduce new abstractions without justification.

@@ -1,30 +1,20 @@
 ---
-description: How to respond when generating code and implementation plans for SalesIQ
+description: How to respond when generating code and implementation plans
 alwaysApply: true
 ---
 
 When implementing:
 - Prefer precise, minimal, production-ready changes.
-- Explain architecture briefly when it matters for the team's understanding.
-- Generate only the necessary files and edits — do not rewrite unrelated code.
-- Respect existing repository conventions defined in CLAUDE.md and the `.cursor/rules/` files.
-- If a task is large, break it into clean phases but still produce usable, runnable code.
-- When adding a new module, place it in the correct layer (route → service → AI/realtime/tasks) per CLAUDE.md architecture.
-- When implementing AI features, map to the pipeline: Whisper STT → GPT-4o analysis → prediction → guidance.
-- When relevant, mention follow-up files the team should update: `.env.example`, Alembic migrations, tests, or docs.
-- When implementing a new API endpoint, always add the corresponding Pydantic schema, update `router.py`, and note that a frontend type should be updated in `src/types/`.
-
-SalesIQ-specific implementation notes:
-- Backend is already fully implemented — focus new work on frontend, tests, AI prompt tuning, and integrations.
-- When building frontend components, always use the existing `components/ui/` primitives first.
-- When modifying AI prompts, always update the version comment in the prompt file.
-- When adding a new Socket.IO event, update both `65-realtime-socketio.mdc` (backend definition) and `frontend/src/types/` (TypeScript event type).
-- When adding a new database column, always create an Alembic migration — never modify production schema manually.
+- Explain architecture briefly when it matters.
+- Generate only the necessary files and edits.
+- Respect existing repository conventions and align with CLAUDE.md.
+- If a task is large, break it into clean phases but still produce usable code.
+- When adding a new module, place it in the correct layer and name it clearly.
+- When implementing SalesIQ features, map to the feature list (real-time calls, AI analysis, deal prediction, lead management, agent coaching).
+- When relevant, mention follow-up files the team should update: env examples, migrations, tests, or docs.
 
 Do not:
-- Produce toy/demo code when production code is requested.
-- Invent abstractions without clear justification.
-- Change unrelated code paths in the same PR.
-- Start full feature development unless explicitly requested — rule and doc updates alone do not require implementing application code.
-- Suggest TypeScript `any` types — always use proper types or `unknown` with type narrowing.
-- Suggest synchronous code in a codebase that is entirely async.
+- Produce toy code when production code is requested.
+- Invent random abstractions without need.
+- Change unrelated code paths.
+- Start full development unless explicitly requested; rules and docs updates alone do not require implementing application code.

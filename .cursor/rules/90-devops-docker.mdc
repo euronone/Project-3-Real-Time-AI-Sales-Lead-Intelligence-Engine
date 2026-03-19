@@ -1,0 +1,38 @@
+---
+description: Docker, CI/CD, and deployment rules
+globs: .github/**, docker-compose*, Dockerfile, backend/Dockerfile, frontend/Dockerfile
+---
+
+Deployment stack:
+- Docker for packaging (multi-stage builds for both frontend and backend).
+- Docker Compose for local development (PostgreSQL, Redis, backend, frontend).
+- GitHub Actions for CI (lint, test, build validation).
+- Docker Compose prod variant for production-like deployments.
+
+DevOps rules:
+- Applications must be container-friendly and stateless where possible.
+- Keep builds reproducible; use environment-driven configuration.
+- Separate build-time config from runtime config.
+- Add health checks for API and workers; ensure logs are structured and production-usable.
+- Support observability: system logs, AI monitoring, latency, error tracking.
+
+Docker expectations:
+- Keep Dockerfiles clean and optimized; use multi-stage builds.
+- Avoid baking secrets into images; minimize image size.
+- Use .dockerignore to exclude node_modules, .next, .git, etc.
+
+CI/CD expectations (GitHub Actions):
+- Run lint (ruff, ESLint), tests (pytest, vitest), and build validation before merge.
+- Use FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 for GitHub Actions Node.js compatibility.
+- Keep deployment config version-controlled.
+- Separate environments: dev (docker-compose.yml), prod (docker-compose.prod.yml).
+
+Local development:
+- docker-compose.yml defines: postgres, redis, backend, frontend.
+- PostgreSQL on port 5433 (mapped from 5432), Redis on port 6380 (mapped from 6379).
+- Backend on port 8000, Frontend on port 3000.
+
+Do not:
+- Hardcode database URLs, Redis URLs, or API keys in Docker configs.
+- Mix deployment-only hacks into application logic.
+- Assume local-only paths or config in production code.
