@@ -66,8 +66,7 @@ class AuthService:
         self.db.add(user)
         await self.db.flush()
 
-        # Generate tokens
-        token_data = {"sub": str(user.id), "tenant_id": str(tenant.id), "role": user.role.value}
+        token_data = self._build_token_data(user, tenant.id)
         return TokenResponse(
             access_token=create_access_token(token_data),
             refresh_token=create_refresh_token(token_data),
@@ -84,15 +83,10 @@ class AuthService:
         if not user.is_active:
             raise UnauthorizedError("Account is deactivated")
 
-        # Update last login
         user.last_login = datetime.now(timezone.utc)
         await self.db.flush()
 
-        token_data = {
-            "sub": str(user.id),
-            "tenant_id": str(user.tenant_id),
-            "role": user.role.value,
-        }
+        token_data = self._build_token_data(user, user.tenant_id)
         return TokenResponse(
             access_token=create_access_token(token_data),
             refresh_token=create_refresh_token(token_data),
@@ -115,11 +109,7 @@ class AuthService:
         if not user or not user.is_active:
             raise UnauthorizedError("User not found or inactive")
 
-        token_data = {
-            "sub": str(user.id),
-            "tenant_id": str(user.tenant_id),
-            "role": user.role.value,
-        }
+        token_data = self._build_token_data(user, user.tenant_id)
         return TokenResponse(
             access_token=create_access_token(token_data),
             refresh_token=create_refresh_token(token_data),
@@ -150,3 +140,13 @@ class AuthService:
         await self.db.flush()
 
         return MessageResponse(message="Password has been reset successfully")
+
+    @staticmethod
+    def _build_token_data(user: User, tenant_id: uuid.UUID) -> dict:
+        """Build the JWT token payload with user context."""
+        return {
+            "sub": str(user.id),
+            "tenant_id": str(tenant_id),
+            "role": user.role.value,
+            "full_name": user.full_name,
+        }

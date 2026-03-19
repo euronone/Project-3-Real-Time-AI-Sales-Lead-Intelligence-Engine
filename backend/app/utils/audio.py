@@ -1,8 +1,26 @@
 """Audio format conversion helpers."""
 
-import audioop
 import io
+import struct
 import wave
+
+# mu-law decompression lookup table (ITU-T G.711)
+_MULAW_DECODE_TABLE: list[int] = []
+for _idx in range(256):
+    _inv = ~_idx
+    _sign = _inv & 0x80
+    _exponent = (_inv >> 4) & 0x07
+    _mantissa = _inv & 0x0F
+    _sample = (((_mantissa << 1) + 33) << (_exponent + 2)) - 132
+    _MULAW_DECODE_TABLE.append(-_sample if _sign else _sample)
+
+
+def _ulaw2lin(mulaw_data: bytes, sample_width: int = 2) -> bytes:
+    """Decode mu-law encoded bytes to linear 16-bit PCM."""
+    if sample_width != 2:
+        raise ValueError("Only 16-bit (sample_width=2) output is supported")
+    samples = [_MULAW_DECODE_TABLE[b] for b in mulaw_data]
+    return struct.pack(f"<{len(samples)}h", *samples)
 
 
 def convert_mulaw_to_wav(
@@ -25,10 +43,8 @@ def convert_mulaw_to_wav(
     Returns:
         WAV file content as bytes.
     """
-    # Decode mu-law to linear PCM
-    pcm_data = audioop.ulaw2lin(mulaw_data, sample_width)
+    pcm_data = _ulaw2lin(mulaw_data, sample_width)
 
-    # Write to WAV format in memory
     buffer = io.BytesIO()
     with wave.open(buffer, "wb") as wav_file:
         wav_file.setnchannels(channels)
