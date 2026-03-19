@@ -5,10 +5,10 @@ import enum
 from decimal import Decimal
 
 from sqlalchemy import Enum, ForeignKey, Numeric, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TenantMixin, TimestampMixin
+from app.models.db_types import GUID, JSONDocument
 
 
 class LeadStatus(str, enum.Enum):
@@ -37,14 +37,12 @@ class Lead(Base, TenantMixin, TimestampMixin):
 
     __tablename__ = "leads"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
     assigned_agent_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        GUID, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     campaign_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("campaigns.id", ondelete="SET NULL"), nullable=True
+        GUID, ForeignKey("campaigns.id", ondelete="SET NULL"), nullable=True
     )
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -60,7 +58,7 @@ class Lead(Base, TenantMixin, TimestampMixin):
     )
     source: Mapped[str | None] = mapped_column(String(100), nullable=True)
     deal_value: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
-    custom_fields: Mapped[dict | None] = mapped_column(JSONB, default=dict, nullable=True)
+    custom_fields: Mapped[dict | None] = mapped_column(JSONDocument, default=dict, nullable=True)
 
     # Relationships
     tenant = relationship("Tenant", back_populates="leads")

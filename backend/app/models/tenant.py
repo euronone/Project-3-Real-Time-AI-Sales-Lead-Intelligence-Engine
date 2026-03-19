@@ -4,10 +4,10 @@ import uuid
 import enum
 
 from sqlalchemy import Boolean, Enum, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+from app.models.db_types import GUID, JSONDocument
 
 
 class TenantPlan(str, enum.Enum):
@@ -24,15 +24,13 @@ class Tenant(Base, TimestampMixin):
 
     __tablename__ = "tenants"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     plan: Mapped[TenantPlan] = mapped_column(
         Enum(TenantPlan), default=TenantPlan.FREE, nullable=False
     )
-    settings: Mapped[dict | None] = mapped_column(JSONB, default=dict, nullable=True)
+    settings: Mapped[dict | None] = mapped_column(JSONDocument, default=dict, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships

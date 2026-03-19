@@ -4,8 +4,9 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from app.models.db_types import GUID
 
 
 class Base(DeclarativeBase):
@@ -20,7 +21,7 @@ class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
-        server_default=text("now()"),
+        server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
     updated_at: Mapped[datetime | None] = mapped_column(
@@ -35,7 +36,7 @@ class TenantMixin:
     """Mixin that adds tenant_id foreign key for row-level tenant isolation."""
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID,
         ForeignKey("tenants.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
