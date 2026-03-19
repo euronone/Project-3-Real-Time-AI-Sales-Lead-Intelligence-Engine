@@ -4,10 +4,10 @@ import uuid
 import enum
 
 from sqlalchemy import Enum, Float, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+from app.models.db_types import GUID
 
 
 class Speaker(str, enum.Enum):
@@ -22,11 +22,9 @@ class CallTranscript(Base, TimestampMixin):
 
     __tablename__ = "call_transcripts"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
     call_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("calls.id", ondelete="CASCADE"), nullable=False, index=True
+        GUID, ForeignKey("calls.id", ondelete="CASCADE"), nullable=False, index=True
     )
     speaker: Mapped[Speaker] = mapped_column(Enum(Speaker), nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)

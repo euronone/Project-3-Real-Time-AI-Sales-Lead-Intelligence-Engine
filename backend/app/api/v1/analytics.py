@@ -55,7 +55,7 @@ async def get_agent_leaderboard(
 
 @router.get("/call-trends")
 async def get_call_trends(
-    period: str = Query(default="7d", regex=r"^(7d|30d|90d)$"),
+    period: str = Query(default="7d", pattern=r"^(7d|30d|90d)$"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:

@@ -1,5 +1,7 @@
 """FastAPI application factory with lifespan, CORS, Socket.IO, and router includes."""
 
+import logging
+import sys
 from contextlib import asynccontextmanager
 
 import socketio
@@ -13,6 +15,51 @@ from app.core.middleware import RequestLoggingMiddleware, TenantMiddleware
 from app.api.router import api_router
 from app.realtime.socket_manager import sio
 
+
+def _configure_logging() -> None:
+    """Configure structlog with JSON output for production, pretty for dev."""
+    shared_processors: list[structlog.types.Processor] = [
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.UnicodeDecoder(),
+    ]
+
+    if settings.APP_ENV == "development":
+        renderer: structlog.types.Processor = structlog.dev.ConsoleRenderer()
+    else:
+        renderer = structlog.processors.JSONRenderer()
+
+    structlog.configure(
+        processors=[
+            *shared_processors,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+    formatter = structlog.stdlib.ProcessorFormatter(
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            renderer,
+        ],
+    )
+
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(formatter)
+    root_logger.addHandler(handler)
+    root_logger.setLevel(logging.INFO)
+
+    logging.getLogger("uvicorn.access").handlers.clear()
+
+
+_configure_logging()
 logger = structlog.get_logger(__name__)
 
 

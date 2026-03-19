@@ -5,10 +5,10 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TenantMixin, TimestampMixin
+from app.models.db_types import GUID
 
 
 class CallDirection(str, enum.Enum):
@@ -34,14 +34,12 @@ class Call(Base, TenantMixin, TimestampMixin):
 
     __tablename__ = "calls"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
     agent_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     lead_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("leads.id", ondelete="CASCADE"), nullable=False
+        GUID, ForeignKey("leads.id", ondelete="CASCADE"), nullable=False
     )
     twilio_call_sid: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     direction: Mapped[CallDirection] = mapped_column(Enum(CallDirection), nullable=False)

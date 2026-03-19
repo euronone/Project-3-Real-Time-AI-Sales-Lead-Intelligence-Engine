@@ -33,6 +33,10 @@ Thumbs.db
 .coverage
 htmlcov/
 .pytest_cache/
+backend/test.db
+
+# TypeScript incremental build info (local)
+**/tsconfig.tsbuildinfo
 
 # Docker
 *.log
